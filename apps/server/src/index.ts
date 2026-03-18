@@ -8,6 +8,7 @@
 import { migrate } from 'db';
 import { handleAuthRequest } from './api/auth';
 import { handleProductsRequest } from './api/products';
+import { handleOrdersRequest } from './api/orders';
 
 await migrate();
 
@@ -36,6 +37,11 @@ export default {
     if (url.pathname.startsWith('/api/products')) {
       const productsRes = await handleProductsRequest(req, url);
       if (productsRes) return productsRes;
+    }
+
+    if (url.pathname.startsWith('/api/orders')) {
+      const ordersRes = await handleOrdersRequest(req, url);
+      if (ordersRes) return ordersRes;
     }
 
     // Serve static assets — path is relative to this file, not process cwd
