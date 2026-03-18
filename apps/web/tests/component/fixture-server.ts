@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import type { Product, ProductProperties } from 'core';
+import type { Product, ProductProperties, Order, OrderProperties } from 'core';
 
 type FixtureState = {
   products?: Product[];
+  orders?: Order[];
   [key: string]: unknown;
 };
 type FixtureStore = Record<string, FixtureState>;
@@ -121,6 +122,90 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
 
     return new Response(JSON.stringify(products[index]), {
       status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // GET /api/orders
+  if (url.pathname === '/api/orders' && req.method === 'GET') {
+    const orders = state.orders ?? [];
+    return new Response(JSON.stringify(orders), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // POST /api/orders
+  if (url.pathname === '/api/orders' && req.method === 'POST') {
+    const body = await req.json();
+
+    if (!body.customer) {
+      return new Response(JSON.stringify({ error: 'Missing required field: customer' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!body.product_id) {
+      return new Response(JSON.stringify({ error: 'Missing required field: product_id' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const products = state.products ?? [];
+    const product = products.find((p) => p.id === body.product_id);
+    if (!product) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { computeOrderFields } = await import('core');
+    const qty: number = body.quantity ?? 0;
+    const unit = body.unit_of_measure ?? 'each';
+    const sellPrice: number = body.sell_price_per_unit ?? 0;
+
+    const computed = computeOrderFields(product, qty, unit, sellPrice);
+
+    const newOrder: Order = {
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      properties: {
+        customer: body.customer,
+        product_id: body.product_id,
+        product_name: product.properties.name,
+        quantity: qty,
+        unit_of_measure: unit,
+        sell_price_per_unit: sellPrice,
+        qty_eaches: computed.qty_eaches,
+        qty_linft: computed.qty_linft,
+        qty_sqft: computed.qty_sqft,
+        total_revenue: computed.total_revenue,
+        total_cost: computed.total_cost,
+        margin_dollars: computed.margin_dollars,
+        margin_percent: computed.margin_percent,
+        margin_target: product.properties.margin_target,
+        margin_floor: product.properties.margin_floor,
+        status: 'draft',
+        notes: body.notes ?? '',
+        created_by: 'test-user',
+        confirmed_by: null,
+        confirmed_at: null,
+        cancelled_by: null,
+        cancelled_at: null,
+      } as OrderProperties,
+    };
+
+    const orders = state.orders ?? [];
+    orders.push(newOrder);
+    state.orders = orders;
+    store[fixtureId] = state;
+    saveState(statePath, store);
+
+    return new Response(JSON.stringify(newOrder), {
+      status: 201,
       headers: { 'Content-Type': 'application/json' },
     });
   }

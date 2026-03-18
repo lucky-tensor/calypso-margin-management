@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
 import { ProductCatalog } from './components/ProductCatalog';
+import { OrderEntry } from './components/OrderEntry';
 import { User, ShoppingCart, Package, History } from 'lucide-react';
 
 function App() {
@@ -79,9 +80,7 @@ function App() {
         </header>
 
         <div className="flex-1 overflow-auto p-6">
-          {activeView === 'order-entry' && (
-            <div className="text-zinc-400 text-sm">Order Entry view — coming soon</div>
-          )}
+          {activeView === 'order-entry' && <OrderEntry />}
           {activeView === 'products' && <ProductCatalog />}
           {activeView === 'history' && (
             <div className="text-zinc-400 text-sm">Order History view — coming soon</div>
