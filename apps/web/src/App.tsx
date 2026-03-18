@@ -1,0 +1,102 @@
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Login } from './components/Login';
+import { User, ShoppingCart, Package, History } from 'lucide-react';
+
+function App() {
+  const { user, logout, loading } = useAuth();
+  const [activeView, setActiveView] = useState<'order-entry' | 'products' | 'history'>(
+    'order-entry',
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  const navItems = [
+    { id: 'order-entry' as const, icon: ShoppingCart, label: 'Order Entry' },
+    { id: 'products' as const, icon: Package, label: 'Products' },
+    { id: 'history' as const, icon: History, label: 'History' },
+  ];
+
+  return (
+    <div className="flex h-screen w-full bg-zinc-50 font-sans overflow-hidden text-zinc-900">
+      {/* Left Sidebar */}
+      <nav className="w-16 shrink-0 border-r border-zinc-200 bg-white flex flex-col items-center py-6 justify-between z-10">
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
+            <span className="text-white font-black text-lg">M</span>
+          </div>
+
+          <div className="flex flex-col gap-4 mt-4 w-full px-2">
+            {navItems.map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveView(id)}
+                title={label}
+                className={`p-3 rounded-xl flex items-center justify-center transition-all ${
+                  activeView === id
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600'
+                }`}
+              >
+                <Icon size={20} strokeWidth={2.5} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={logout}
+            className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
+          >
+            <User size={18} />
+          </button>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-12 px-5 border-b border-zinc-200 flex items-center shrink-0 bg-white shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
+            <h1 className="text-sm font-semibold tracking-tight text-zinc-900">MeshMargin</h1>
+            <span className="text-zinc-200 font-light text-base leading-none">/</span>
+            <span className="text-xs text-zinc-400 font-medium">
+              {navItems.find((n) => n.id === activeView)?.label}
+            </span>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-auto p-6">
+          {activeView === 'order-entry' && (
+            <div className="text-zinc-400 text-sm">Order Entry view — coming soon</div>
+          )}
+          {activeView === 'products' && (
+            <div className="text-zinc-400 text-sm">Product Catalog view — coming soon</div>
+          )}
+          {activeView === 'history' && (
+            <div className="text-zinc-400 text-sm">Order History view — coming soon</div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function Root() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}

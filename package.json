@@ -1,0 +1,39 @@
+{
+  "name": "meshmargin",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "git config core.hooksPath .githooks",
+    "build": "bun run --filter '*' build",
+    "test": "bun run test:unit && bun run test:api && bun run test:component && bun run test:e2e",
+    "test:unit": "bun --bun vitest run tests/unit apps/*/tests/unit",
+    "test:api": "for f in apps/server/tests/integration/*.test.ts; do bun --bun vitest run \"$f\" || exit 1; done",
+    "test:pg-container": "bun --bun vitest run apps/server/tests/integration/pg-container.test.ts",
+    "test:component": "bun --bun vitest run --config apps/web/vitest.browser.config.ts",
+    "test:e2e": "bun --bun vitest run --config tests/e2e/vitest.config.ts",
+    "eslint": "eslint",
+    "lint": "bunx eslint .",
+    "prettier": "prettier",
+    "format": "bunx prettier --write .",
+    "format:check": "bunx prettier --check .",
+    "dev": "bun run scripts/dev-start.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "vite": "^5.1.0",
+    "@playwright/test": "^1.40.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.4.0",
+    "jiti": "^2.6.1",
+    "prettier": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^2.0.0",
+    "wait-on": "^9.0.4"
+  }
+}
