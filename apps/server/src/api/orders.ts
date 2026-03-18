@@ -175,7 +175,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
 
       const rows = await sql<{ id: string; properties: OrderProperties; created_at: string }[]>`
         INSERT INTO entities (id, type, properties, tenant_id)
-        VALUES (${id}, 'order', ${sql.json(properties)}, null)
+        VALUES (${id}, 'order', ${sql.json(JSON.parse(JSON.stringify(properties)))}, null)
         RETURNING id, properties, created_at
       `;
 
@@ -259,7 +259,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
 
       const rows = await sql<{ id: string; properties: OrderProperties; created_at: string }[]>`
         UPDATE entities
-        SET properties = ${sql.json(updatedProps)}, updated_at = CURRENT_TIMESTAMP, version = version + 1
+        SET properties = ${sql.json(JSON.parse(JSON.stringify(updatedProps)))}, updated_at = CURRENT_TIMESTAMP, version = version + 1
         WHERE id = ${orderId} AND type = 'order'
         RETURNING id, properties, created_at
       `;

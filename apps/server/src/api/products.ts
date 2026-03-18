@@ -147,7 +147,7 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
 
       const rows = await sql<{ id: string; properties: ProductProperties; created_at: string }[]>`
         INSERT INTO entities (id, type, properties, tenant_id)
-        VALUES (${id}, 'product', ${sql.json(properties)}, null)
+        VALUES (${id}, 'product', ${sql.json(JSON.parse(JSON.stringify(properties)))}, null)
         RETURNING id, properties, created_at
       `;
 
@@ -198,7 +198,7 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
 
       const rows = await sql<{ id: string; properties: ProductProperties; created_at: string }[]>`
         UPDATE entities
-        SET properties = ${sql.json(merged)}, updated_at = CURRENT_TIMESTAMP, version = version + 1
+        SET properties = ${sql.json(JSON.parse(JSON.stringify(merged)))}, updated_at = CURRENT_TIMESTAMP, version = version + 1
         WHERE id = ${productId} AND type = 'product'
         RETURNING id, properties, created_at
       `;
