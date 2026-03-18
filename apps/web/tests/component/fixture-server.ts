@@ -128,7 +128,16 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
 
   // GET /api/orders
   if (url.pathname === '/api/orders' && req.method === 'GET') {
-    const orders = state.orders ?? [];
+    let orders = state.orders ?? [];
+    const statusParam = url.searchParams.get('status');
+    const customerParam = url.searchParams.get('customer');
+    if (statusParam) {
+      orders = orders.filter((o) => o.properties.status === statusParam);
+    }
+    if (customerParam) {
+      const needle = customerParam.toLowerCase();
+      orders = orders.filter((o) => o.properties.customer.toLowerCase().includes(needle));
+    }
     return new Response(JSON.stringify(orders), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -206,6 +215,48 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
 
     return new Response(JSON.stringify(newOrder), {
       status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // PATCH /api/orders/:id
+  const patchOrderMatch = url.pathname.match(/^\/api\/orders\/([^/]+)$/);
+  if (patchOrderMatch && req.method === 'PATCH') {
+    const orderId = patchOrderMatch[1];
+    const orders = state.orders ?? [];
+    const index = orders.findIndex((o) => o.id === orderId);
+
+    if (index === -1) {
+      return new Response(JSON.stringify({ error: 'Order not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json();
+    const existing = orders[index];
+    const now = new Date().toISOString();
+    const actor = 'test-user';
+
+    const updatedProperties: OrderProperties = { ...existing.properties };
+
+    if (body.status === 'confirmed') {
+      updatedProperties.status = 'confirmed';
+      updatedProperties.confirmed_by = actor;
+      updatedProperties.confirmed_at = now;
+    } else if (body.status === 'cancelled') {
+      updatedProperties.status = 'cancelled';
+      updatedProperties.cancelled_by = actor;
+      updatedProperties.cancelled_at = now;
+    }
+
+    orders[index] = { ...existing, properties: updatedProperties };
+    state.orders = orders;
+    store[fixtureId] = state;
+    saveState(statePath, store);
+
+    return new Response(JSON.stringify(orders[index]), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
