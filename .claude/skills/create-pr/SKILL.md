@@ -23,7 +23,7 @@ $ARGUMENTS should be the issue number. If empty, ask the user which issue this P
 Before running any `gh` issue commands, detect the tasks repository:
 
 ```bash
-TASKS_REPO=$(gh repo view --json nameWithOwner -q '(.owner.login) + "/" + (.name) + "-tasks"')
+TASKS_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
 
 ---

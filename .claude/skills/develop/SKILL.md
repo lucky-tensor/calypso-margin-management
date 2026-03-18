@@ -30,7 +30,7 @@ gh issue view {plan-issue-number} --repo {tasks-repo} --json body -q .body
 Before running any `gh` issue commands, detect the tasks repository:
 
 ```bash
-TASKS_REPO=$(gh repo view --json nameWithOwner -q '(.owner.login) + "/" + (.name) + "-tasks"')
+TASKS_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
 
 ---
