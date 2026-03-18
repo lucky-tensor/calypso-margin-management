@@ -1,9 +1,4 @@
-import type {
-  Product,
-  UnitOfMeasure,
-  UnitConversions,
-  MarginResult,
-} from './types';
+import type { Product, UnitOfMeasure, UnitConversions, MarginResult } from './types';
 
 /**
  * Convert a quantity in any unit to all three units (eaches, linear_feet, square_feet).
@@ -48,12 +43,8 @@ export function convertUnits(
  * Calculate total cost using the product's primary_cost_basis and the
  * corresponding converted quantity.
  */
-export function calculateCost(
-  product: Product,
-  conversions: UnitConversions,
-): number {
-  const { primary_cost_basis, cost_per_each, cost_per_linft, cost_per_sqft } =
-    product.properties;
+export function calculateCost(product: Product, conversions: UnitConversions): number {
+  const { primary_cost_basis, cost_per_each, cost_per_linft, cost_per_sqft } = product.properties;
 
   switch (primary_cost_basis) {
     case 'each':

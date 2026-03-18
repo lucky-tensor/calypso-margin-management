@@ -144,8 +144,14 @@ describe('calculateCost', () => {
     const conversions = { eaches: 10, linear_feet: 100, square_feet: 400 };
 
     const costByEach = calculateCost(makeProduct({ primary_cost_basis: 'each' }), conversions);
-    const costByLinft = calculateCost(makeProduct({ primary_cost_basis: 'linear_foot' }), conversions);
-    const costBySqft = calculateCost(makeProduct({ primary_cost_basis: 'square_foot' }), conversions);
+    const costByLinft = calculateCost(
+      makeProduct({ primary_cost_basis: 'linear_foot' }),
+      conversions,
+    );
+    const costBySqft = calculateCost(
+      makeProduct({ primary_cost_basis: 'square_foot' }),
+      conversions,
+    );
 
     expect(costByEach).toBeCloseTo(costByLinft, 8);
     expect(costByEach).toBeCloseTo(costBySqft, 8);
