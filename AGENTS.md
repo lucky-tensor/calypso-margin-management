@@ -28,8 +28,7 @@ Available slash commands (defined in `.claude/skills/`):
 ### P1: Orient
 
 1. READ `docs/prd.md` (Product requirements).
-2. READ `docs/plans/next-prompt.md` IF exists (Assigned task).
-3. IF no task assigned: ASK human "What should I build?". (ONLY valid reason to ask here).
+2. IF no task assigned: ASK human "What should I build?". (ONLY valid reason to ask here).
 
 ### P2: Load Implementation Context
 

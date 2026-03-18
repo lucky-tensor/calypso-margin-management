@@ -28,7 +28,6 @@ checked automatically by the pre-commit hook. Confirm the following — things o
 you can verify. The commit-msg hook blocks if any box remains unchecked.
 
 - [ ] implementation-plan.md — completed tasks are checked off; newly discovered tasks are added
-- [ ] next-prompt.md — overwritten with a complete, self-contained prompt for the next commit
 - [ ] retroactive_prompt — written as a specific instruction to reproduce this change, not a summary of what changed
 -->
 EOF

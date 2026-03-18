@@ -31,7 +31,7 @@ Do NOT proceed until all four are provided.
 Before running any `gh` issue commands, detect the tasks repository:
 
 ```bash
-TASKS_REPO=$(gh repo view --json nameWithOwner -q '(.owner.login) + "/" + (.name) + "-tasks"')
+TASKS_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
 
 Use `$TASKS_REPO` (or `{tasks-repo}` in command templates below) wherever `--repo` is needed for issue operations.
