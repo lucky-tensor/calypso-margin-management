@@ -53,7 +53,7 @@ test('register and login renders the MeshMargin layout shell', async () => {
   await page.getByRole('button', { name: 'Create Account' }).click();
 
   await playwrightExpect(page.getByText('MeshMargin')).toBeVisible({ timeout: 15_000 });
-  await playwrightExpect(page.getByText('Order Entry')).toBeVisible();
+  await playwrightExpect(page.getByText('Order Entry', { exact: true }).first()).toBeVisible();
   vitestExpect(consoleErrors.filter((e) => !isExpectedError(e))).toHaveLength(0);
 
   await page.close();

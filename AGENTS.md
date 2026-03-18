@@ -15,13 +15,13 @@ description: Default execution context and agent instructions
 
 Available slash commands (defined in `.claude/skills/`):
 
-| Skill | Command | When to use |
-|-------|---------|-------------|
-| **feature** | `/feature` | Proposing a new feature. Walks through intake, architecture evaluation, GitHub issue creation with structured sections, and tracking issue update. Use before implementation. |
-| **develop** | `/develop` | Implementing a feature. Picks a task from the Plan, creates an isolated worktree and branch, implements the feature, then opens a PR via `/create-pr`. |
-| **create-pr** | `/create-pr` | Opening a PR. Verifies acceptance criteria, runs type-check/lint/format/tests locally, then creates the PR. Use when implementation is complete. |
-| **merge** | `/merge` | Merging ready PRs. Discovers PRs with green CI, orders by dependency, rebases if needed, merges in order, and updates the tracking issue. |
-| **replan** | `/replan` | Reorganizing the backlog. Reads the Plan tracking issue and all open issues, builds a dependency graph, scores risk, organizes into parallel batches, and updates issues. |
+| Skill         | Command      | When to use                                                                                                                                                                   |
+| ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **feature**   | `/feature`   | Proposing a new feature. Walks through intake, architecture evaluation, GitHub issue creation with structured sections, and tracking issue update. Use before implementation. |
+| **develop**   | `/develop`   | Implementing a feature. Picks a task from the Plan, creates an isolated worktree and branch, implements the feature, then opens a PR via `/create-pr`.                        |
+| **create-pr** | `/create-pr` | Opening a PR. Verifies acceptance criteria, runs type-check/lint/format/tests locally, then creates the PR. Use when implementation is complete.                              |
+| **merge**     | `/merge`     | Merging ready PRs. Discovers PRs with green CI, orders by dependency, rebases if needed, merges in order, and updates the tracking issue.                                     |
+| **replan**    | `/replan`    | Reorganizing the backlog. Reads the Plan tracking issue and all open issues, builds a dependency graph, scores risk, organizes into parallel batches, and updates issues.     |
 
 ## CURRICULUM
 
