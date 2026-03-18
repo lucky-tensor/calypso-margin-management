@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './components/Login';
+import { ProductCatalog } from './components/ProductCatalog';
 import { User, ShoppingCart, Package, History } from 'lucide-react';
 
 function App() {
@@ -81,9 +82,7 @@ function App() {
           {activeView === 'order-entry' && (
             <div className="text-zinc-400 text-sm">Order Entry view — coming soon</div>
           )}
-          {activeView === 'products' && (
-            <div className="text-zinc-400 text-sm">Product Catalog view — coming soon</div>
-          )}
+          {activeView === 'products' && <ProductCatalog />}
           {activeView === 'history' && (
             <div className="text-zinc-400 text-sm">Order History view — coming soon</div>
           )}
