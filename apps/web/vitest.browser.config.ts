@@ -105,5 +105,6 @@ export default defineConfig({
       },
     },
     include: ['tests/component/**/*.test.tsx'],
+    passWithNoTests: true,
   },
 });

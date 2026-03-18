@@ -9,6 +9,19 @@ description: Default execution context and agent instructions
 - _TDD_ Do test driven development.
 - _CURRICULUM_ Select a list of documents to read in order to learn what the task is about.
 - _DONT ASK_ If you are not confident in your solution read more documents.
+- _NO AI ATTRIBUTION_ Do NOT add "Co-Authored-By" lines to commits. Do NOT add "Generated with Claude Code" or any AI attribution to PR descriptions, issue text, or any other output.
+
+## SKILLS
+
+Available slash commands (defined in `.claude/skills/`):
+
+| Skill         | Command      | When to use                                                                                                                                                                   |
+| ------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **feature**   | `/feature`   | Proposing a new feature. Walks through intake, architecture evaluation, GitHub issue creation with structured sections, and tracking issue update. Use before implementation. |
+| **develop**   | `/develop`   | Implementing a feature. Picks a task from the Plan, creates an isolated worktree and branch, implements the feature, then opens a PR via `/create-pr`.                        |
+| **create-pr** | `/create-pr` | Opening a PR. Verifies acceptance criteria, runs type-check/lint/format/tests locally, then creates the PR. Use when implementation is complete.                              |
+| **merge**     | `/merge`     | Merging ready PRs. Discovers PRs with green CI, orders by dependency, rebases if needed, merges in order, and updates the tracking issue.                                     |
+| **replan**    | `/replan`    | Reorganizing the backlog. Reads the Plan tracking issue and all open issues, builds a dependency graph, scores risk, organizes into parallel batches, and updates issues.     |
 
 ## CURRICULUM
 
