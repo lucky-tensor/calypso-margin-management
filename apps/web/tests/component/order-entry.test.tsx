@@ -24,6 +24,13 @@ const fixtureProduct: Product = {
   },
 };
 
+const PRODUCT_OPTION = 'Tela Soldada 4x4 (TS-4X4-10GA)';
+
+async function waitAndSelectProduct(screen: ReturnType<typeof render>) {
+  await expect.element(screen.getByRole('option', { name: PRODUCT_OPTION })).toBeVisible();
+  await screen.getByLabelText('Produto').selectOptions(PRODUCT_OPTION);
+}
+
 describe('OrderEntry', () => {
   beforeEach(async () => {
     await commands.resetFixtureState();
@@ -43,7 +50,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
 
     await expect.element(screen.getByText(/1 unidade = 48" × 120"/)).toBeVisible();
     await expect.element(screen.getByText(/Aco Galvanizado/)).toBeVisible();
@@ -54,7 +61,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     await screen.getByLabelText('Preco por unidade (R$)').fill('45');
 
@@ -69,7 +76,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     await screen.getByLabelText('Preco por unidade (R$)').fill('45');
 
@@ -84,7 +91,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     // 28.9% margin — above 25% target → healthy/green
     await screen.getByLabelText('Preco por unidade (R$)').fill('45');
@@ -102,7 +109,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     // To get ~20% margin: revenue = cost / (1 - 0.20) = 320 / 0.80 = 400, price per each = 40
     // Actual: 10 * 40 = 400 revenue, 10 * 32 = 320 cost, margin = 80/400 = 20% — between 15% floor and 25% target
@@ -119,7 +126,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     // To get < 15% margin: price = 35, revenue = 350, cost = 320, margin = 30/350 = 8.6%
     await screen.getByLabelText('Preco por unidade (R$)').fill('35');
@@ -135,7 +142,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Unid. de medida').selectOptions('Pe linear');
     // 73 linear feet / 10 ft per each = 7.3 eaches (fractional)
     await screen.getByLabelText('Quantidade').fill('73');
@@ -149,7 +156,7 @@ describe('OrderEntry', () => {
 
     const screen = render(<OrderEntry />);
 
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     await screen.getByLabelText('Preco por unidade (R$)').fill('45');
 
@@ -163,7 +170,7 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await screen.getByLabelText('Cliente').fill('Acme Fencing Co');
-    await screen.getByLabelText('Produto').selectOptions('Tela Soldada 4x4 (TS-4X4-10GA)');
+    await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantidade').fill('10');
     await screen.getByLabelText('Preco por unidade (R$)').fill('45');
 
