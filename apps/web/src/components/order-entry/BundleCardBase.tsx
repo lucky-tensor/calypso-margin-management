@@ -48,7 +48,10 @@ export function BundleCardBase({
   const [itemPrices, setItemPrices] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const item of items) {
-      initial[item.product.id] = '';
+      const cost = item.product.properties.cost_per_each ?? 0;
+      const target = item.product.properties.margin_target / 100;
+      const raw = cost / (1 - target);
+      initial[item.product.id] = (Math.ceil(raw * 100) / 100).toFixed(2);
     }
     return initial;
   });
