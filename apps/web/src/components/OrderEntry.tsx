@@ -3,9 +3,9 @@ import type { Product, UnitOfMeasure } from 'core';
 import { computeOrderFields, evaluateMargin } from 'core';
 
 const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
-  { value: 'each', label: 'Unidade' },
-  { value: 'linear_foot', label: 'Pe linear' },
-  { value: 'square_foot', label: 'Pe quadrado' },
+  { value: 'each', label: 'Each' },
+  { value: 'linear_foot', label: 'Linear ft' },
+  { value: 'square_foot', label: 'Square ft' },
 ];
 
 interface OrderForm {
@@ -29,23 +29,23 @@ const EMPTY_FORM: OrderForm = {
 function getProductContextLine(product: Product): string {
   const p = product.properties;
   const lengthFeet = p.length_inches / 12;
-  const rollStr = Number.isInteger(lengthFeet) ? `${lengthFeet} pe` : `${lengthFeet.toFixed(1)} pe`;
-  return `1 unidade = ${p.width_inches}" × ${p.length_inches}" (${rollStr} de rolo) — ${p.material}`;
+  const rollStr = Number.isInteger(lengthFeet) ? `${lengthFeet} ft` : `${lengthFeet.toFixed(1)} ft`;
+  return `1 unit = ${p.width_inches}" × ${p.length_inches}" (${rollStr} roll) — ${p.material}`;
 }
 
 function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 function formatNumber(value: number, decimals = 2): string {
-  return value.toLocaleString('pt-BR', {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });
 }
 
 function formatPercent(value: number): string {
-  return value.toLocaleString('pt-BR', {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
@@ -66,11 +66,11 @@ export const OrderEntry: React.FC = () => {
     setProductError(null);
     try {
       const res = await fetch('/api/products', { credentials: 'include' });
-      if (!res.ok) throw new Error('Erro ao carregar produtos');
+      if (!res.ok) throw new Error('Failed to load products');
       const data: Product[] = await res.json();
       setProducts(data);
     } catch {
-      setProductError('Erro ao carregar produtos');
+      setProductError('Failed to load products');
     } finally {
       setLoadingProducts(false);
     }
@@ -134,14 +134,14 @@ export const OrderEntry: React.FC = () => {
 
       if (!res.ok) {
         const data = await res.json();
-        setSubmitError(data.error || 'Erro ao confirmar pedido');
+        setSubmitError(data.error || 'Failed to submit order');
         return;
       }
 
-      setSuccessMessage('Pedido confirmado com sucesso!');
+      setSuccessMessage('Order confirmed successfully!');
       setForm({ ...EMPTY_FORM });
     } catch {
-      setSubmitError('Erro de rede ao confirmar pedido');
+      setSubmitError('Network error submitting order');
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +164,7 @@ export const OrderEntry: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-zinc-900 mb-4">Entrada de Pedido</h2>
+      <h2 className="text-lg font-semibold text-zinc-900 mb-4">New Order</h2>
 
       {loadingProducts && (
         <div className="flex items-center justify-center py-12">
@@ -180,10 +180,8 @@ export const OrderEntry: React.FC = () => {
 
       {!loadingProducts && !productError && products.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-zinc-500 text-sm mb-2">Nenhum produto cadastrado.</p>
-          <p className="text-zinc-400 text-sm">
-            Adicione produtos no catalogo antes de criar um pedido.
-          </p>
+          <p className="text-zinc-500 text-sm mb-2">No products found.</p>
+          <p className="text-zinc-400 text-sm">Add products in the catalog before creating an order.</p>
         </div>
       )}
 
@@ -210,14 +208,14 @@ export const OrderEntry: React.FC = () => {
                     htmlFor="field-customer"
                     className="block text-sm font-medium text-zinc-700 mb-1"
                   >
-                    Cliente
+                    Customer
                   </label>
                   <input
                     id="field-customer"
                     type="text"
                     value={form.customer}
                     onChange={(e) => handleChange('customer', e.target.value)}
-                    placeholder="Nome do cliente"
+                    placeholder="Customer name"
                     tabIndex={1}
                     className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
                   />
@@ -228,7 +226,7 @@ export const OrderEntry: React.FC = () => {
                     htmlFor="field-product"
                     className="block text-sm font-medium text-zinc-700 mb-1"
                   >
-                    Produto
+                    Product
                   </label>
                   <select
                     id="field-product"
@@ -237,7 +235,7 @@ export const OrderEntry: React.FC = () => {
                     tabIndex={2}
                     className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white"
                   >
-                    <option value="">Selecione um produto...</option>
+                    <option value="">Select a product...</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.properties.name} ({p.properties.sku})
@@ -252,7 +250,7 @@ export const OrderEntry: React.FC = () => {
                       htmlFor="field-quantity"
                       className="block text-sm font-medium text-zinc-700 mb-1"
                     >
-                      Quantidade
+                      Quantity
                     </label>
                     <input
                       id="field-quantity"
@@ -271,7 +269,7 @@ export const OrderEntry: React.FC = () => {
                       htmlFor="field-uom"
                       className="block text-sm font-medium text-zinc-700 mb-1"
                     >
-                      Unid. de medida
+                      Unit of measure
                     </label>
                     <select
                       id="field-uom"
@@ -294,7 +292,7 @@ export const OrderEntry: React.FC = () => {
                     htmlFor="field-sell-price"
                     className="block text-sm font-medium text-zinc-700 mb-1"
                   >
-                    Preco por unidade (R$)
+                    Sell price per unit ($)
                   </label>
                   <input
                     id="field-sell-price"
@@ -303,7 +301,7 @@ export const OrderEntry: React.FC = () => {
                     min="0"
                     value={form.sellPrice}
                     onChange={(e) => handleChange('sellPrice', e.target.value)}
-                    placeholder="0,00"
+                    placeholder="0.00"
                     tabIndex={5}
                     className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
                   />
@@ -314,13 +312,13 @@ export const OrderEntry: React.FC = () => {
                     htmlFor="field-notes"
                     className="block text-sm font-medium text-zinc-700 mb-1"
                   >
-                    Observacoes (opcional)
+                    Notes (optional)
                   </label>
                   <textarea
                     id="field-notes"
                     value={form.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
-                    placeholder="Observacoes sobre o pedido..."
+                    placeholder="Notes about this order..."
                     rows={3}
                     className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm resize-none"
                   />
@@ -332,7 +330,7 @@ export const OrderEntry: React.FC = () => {
                   disabled={submitting || !selectedProduct || !hasQty || !hasPrice}
                   className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Confirmando...' : 'Confirmar Pedido'}
+                  {submitting ? 'Submitting...' : 'Confirm Order'}
                 </button>
               </div>
 
@@ -343,7 +341,7 @@ export const OrderEntry: React.FC = () => {
                     {/* Product context */}
                     <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
                       <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-                        Contexto do Produto
+                        Product Context
                       </p>
                       <p className="text-sm text-zinc-800">
                         {getProductContextLine(selectedProduct)}
@@ -354,41 +352,40 @@ export const OrderEntry: React.FC = () => {
                     {computed ? (
                       <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-2">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                          Conversoes de Unidade
+                          Unit Conversions
                         </p>
                         <div className="flex justify-between text-sm">
-                          <span className="text-zinc-600">Unidades</span>
+                          <span className="text-zinc-600">Each</span>
                           <span className="font-medium text-zinc-900">
-                            {formatNumber(computed.qty_eaches)} unidades
+                            {formatNumber(computed.qty_eaches)} units
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-zinc-600">Pes lineares</span>
+                          <span className="text-zinc-600">Linear feet</span>
                           <span className="font-medium text-zinc-900">
-                            {formatNumber(computed.qty_linft)} pes lineares
+                            {formatNumber(computed.qty_linft)} lin ft
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-zinc-600">Pes quadrados</span>
+                          <span className="text-zinc-600">Square feet</span>
                           <span className="font-medium text-zinc-900">
-                            {formatNumber(computed.qty_sqft)} pes quadrados
+                            {formatNumber(computed.qty_sqft)} sq ft
                           </span>
                         </div>
 
                         {isFractionalEaches && (
                           <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                            Unidade fracionada — verifique com operacoes se deve arredondar ou
-                            cortar
+                            Fractional unit — confirm with operations whether to round up or down
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                          Conversoes de Unidade
+                          Unit Conversions
                         </p>
                         <p className="text-sm text-zinc-400">
-                          Informe quantidade e preco para ver as conversoes.
+                          Enter quantity and price to see conversions.
                         </p>
                       </div>
                     )}
@@ -397,16 +394,16 @@ export const OrderEntry: React.FC = () => {
                     {computed ? (
                       <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-2">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                          Custo e Margem
+                          Cost & Margin
                         </p>
                         <div className="flex justify-between text-sm">
-                          <span className="text-zinc-600">Receita</span>
+                          <span className="text-zinc-600">Revenue</span>
                           <span className="font-medium text-zinc-900">
                             {formatCurrency(computed.total_revenue)}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-zinc-600">Custo</span>
+                          <span className="text-zinc-600">Cost</span>
                           <span className="font-medium text-zinc-900">
                             {formatCurrency(computed.total_cost)}
                           </span>
@@ -415,7 +412,7 @@ export const OrderEntry: React.FC = () => {
                         {/* Margin display */}
                         <div className={`mt-3 rounded-xl border-2 p-4 ${marginClass}`}>
                           <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
-                            Margem
+                            Margin
                           </p>
                           <div className="flex items-baseline gap-3">
                             <span className={`text-2xl font-black ${marginTextClass}`}>
@@ -430,17 +427,17 @@ export const OrderEntry: React.FC = () => {
                     ) : (
                       <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
-                          Custo e Margem
+                          Cost & Margin
                         </p>
                         <p className="text-sm text-zinc-400">
-                          Informe quantidade e preco para ver o calculo de margem.
+                          Enter quantity and price to see margin calculation.
                         </p>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="flex items-center justify-center h-full min-h-48 text-zinc-400 text-sm">
-                    Selecione um produto para ver as informacoes.
+                    Select a product to see details.
                   </div>
                 )}
               </div>

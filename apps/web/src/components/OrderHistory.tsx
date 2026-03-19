@@ -2,40 +2,40 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Order, OrderStatus } from 'core';
 
 const UOM_LABELS: Record<string, string> = {
-  each: 'Unidade',
-  linear_foot: 'Pe linear',
-  square_foot: 'Pe quadrado',
+  each: 'Each',
+  linear_foot: 'Linear ft',
+  square_foot: 'Square ft',
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
-  draft: 'Rascunho',
-  confirmed: 'Confirmado',
-  cancelled: 'Cancelado',
+  draft: 'Draft',
+  confirmed: 'Confirmed',
+  cancelled: 'Cancelled',
 };
 
 function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 function formatPercent(value: number): string {
-  return value.toLocaleString('pt-BR', {
+  return value.toLocaleString('en-US', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
+  return new Date(iso).toLocaleDateString('en-US', {
     month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
   });
 }
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
+  return new Date(iso).toLocaleString('en-US', {
     month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -63,10 +63,10 @@ function getMarginBgClass(
 }
 
 const STATUS_FILTER_TABS: { value: OrderStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'draft', label: 'Rascunho' },
-  { value: 'confirmed', label: 'Confirmado' },
-  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'all', label: 'All' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ];
 
 interface ConfirmDialogProps {
@@ -85,13 +85,13 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
             onClick={onCancel}
             className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
           >
-            Voltar
+            Go back
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
           >
-            Confirmar cancelamento
+            Confirm cancellation
           </button>
         </div>
       </div>
@@ -121,11 +121,11 @@ export const OrderHistory: React.FC = () => {
 
       const url = `/api/orders${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('Erro ao carregar pedidos');
+      if (!res.ok) throw new Error('Failed to load orders');
       const data: Order[] = await res.json();
       setOrders(data);
     } catch {
-      setError('Erro ao carregar pedidos');
+      setError('Failed to load orders');
     } finally {
       setLoading(false);
     }
@@ -146,21 +146,21 @@ export const OrderHistory: React.FC = () => {
       });
       if (!res.ok) {
         const data = await res.json();
-        setActionError(data.error || 'Erro ao atualizar pedido');
+        setActionError(data.error || 'Failed to update order');
         return;
       }
       const updated: Order = await res.json();
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
     } catch {
-      setActionError('Erro de rede ao atualizar pedido');
+      setActionError('Network error updating order');
     }
   };
 
-  const handleConfirmarClick = (orderId: string) => {
+  const handleConfirmClick = (orderId: string) => {
     setPendingAction({ orderId, action: 'confirm' });
   };
 
-  const handleCancelarClick = (orderId: string) => {
+  const handleCancelClick = (orderId: string) => {
     setPendingAction({ orderId, action: 'cancel' });
   };
 
@@ -181,12 +181,12 @@ export const OrderHistory: React.FC = () => {
 
   const dialogMessage =
     pendingAction?.action === 'confirm'
-      ? 'Deseja confirmar este pedido?'
-      : 'Deseja cancelar este pedido? Esta acao nao pode ser desfeita.';
+      ? 'Confirm this order?'
+      : 'Cancel this order? This action cannot be undone.';
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-zinc-900 mb-4">Historico de Pedidos</h2>
+      <h2 className="text-lg font-semibold text-zinc-900 mb-4">Order History</h2>
 
       {/* Filters */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -213,8 +213,8 @@ export const OrderHistory: React.FC = () => {
             type="text"
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
-            placeholder="Filtrar por cliente..."
-            aria-label="Filtrar por cliente"
+            placeholder="Filter by customer..."
+            aria-label="Filter by customer"
             className="px-3 py-1.5 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm w-48"
           />
         </div>
@@ -244,7 +244,7 @@ export const OrderHistory: React.FC = () => {
       {/* Empty state */}
       {!loading && !error && orders.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-zinc-500 text-sm">Nenhum pedido encontrado.</p>
+          <p className="text-zinc-500 text-sm">No orders found.</p>
         </div>
       )}
 
@@ -254,17 +254,17 @@ export const OrderHistory: React.FC = () => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Data</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Cliente</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Produto</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Qtd</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Date</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Customer</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Product</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Qty</th>
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">UOM</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Receita</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Custo</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Margem %</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Revenue</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Cost</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Margin %</th>
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Conf./Canc. por</th>
-                <th className="text-center px-4 py-3 font-medium text-zinc-600">Acoes</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Conf./Canc. by</th>
+                <th className="text-center px-4 py-3 font-medium text-zinc-600">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -283,9 +283,9 @@ export const OrderHistory: React.FC = () => {
 
                 let auditInfo: string | null = null;
                 if (p.status === 'confirmed' && p.confirmed_by) {
-                  auditInfo = `${p.confirmed_by}${p.confirmed_at ? ' em ' + formatDateTime(p.confirmed_at) : ''}`;
+                  auditInfo = `${p.confirmed_by}${p.confirmed_at ? ' at ' + formatDateTime(p.confirmed_at) : ''}`;
                 } else if (p.status === 'cancelled' && p.cancelled_by) {
-                  auditInfo = `${p.cancelled_by}${p.cancelled_at ? ' em ' + formatDateTime(p.cancelled_at) : ''}`;
+                  auditInfo = `${p.cancelled_by}${p.cancelled_at ? ' at ' + formatDateTime(p.cancelled_at) : ''}`;
                 }
 
                 return (
@@ -299,7 +299,7 @@ export const OrderHistory: React.FC = () => {
                     <td className="px-4 py-3 font-medium text-zinc-900">{p.customer}</td>
                     <td className="px-4 py-3 text-zinc-700">{p.product_name}</td>
                     <td className="px-4 py-3 text-right text-zinc-600">
-                      {p.quantity.toLocaleString('pt-BR')}
+                      {p.quantity.toLocaleString('en-US')}
                     </td>
                     <td className="px-4 py-3 text-zinc-600">
                       {UOM_LABELS[p.unit_of_measure] ?? p.unit_of_measure}
@@ -333,18 +333,18 @@ export const OrderHistory: React.FC = () => {
                       <div className="flex items-center justify-center gap-2">
                         {p.status === 'draft' && (
                           <button
-                            onClick={() => handleConfirmarClick(order.id)}
+                            onClick={() => handleConfirmClick(order.id)}
                             className="px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors"
                           >
-                            Confirmar
+                            Confirm
                           </button>
                         )}
                         {(p.status === 'draft' || p.status === 'confirmed') && (
                           <button
-                            onClick={() => handleCancelarClick(order.id)}
+                            onClick={() => handleCancelClick(order.id)}
                             className="px-2.5 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
                           >
-                            Cancelar
+                            Cancel
                           </button>
                         )}
                         {p.status === 'cancelled' && (
