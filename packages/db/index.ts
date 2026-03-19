@@ -2,6 +2,9 @@ import postgres from 'postgres';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 
+export { seed } from './seed';
+export type { SeedOptions } from './seed';
+
 // Connection pool for MeshMargin.
 function maskDbUrl(dbUrl: string): string {
   return dbUrl.replace(/:[^:@]+@/, ':***@');

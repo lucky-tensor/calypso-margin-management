@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+interface DemoAccount {
+  label: string;
+  username: string;
+  password: string;
+}
+
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { label: 'Sales Rep', username: 'sales_rep', password: 'demo1234' },
+  { label: 'Order Clerk', username: 'order_clerk', password: 'demo1234' },
+];
+
 export const Login: React.FC = () => {
   const { setUser } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
@@ -8,6 +21,32 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const loginWithCredentials = async (user: string, pass: string) => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed.');
+      }
+
+      setUser(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +80,12 @@ export const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoLogin = (account: DemoAccount) => {
+    setUsername(account.username);
+    setPassword(account.password);
+    loginWithCredentials(account.username, account.password);
   };
 
   return (
@@ -101,6 +146,25 @@ export const Login: React.FC = () => {
             {isRegister ? 'Already have an account? Sign In' : 'Need an account? Register'}
           </button>
         </div>
+
+        {DEMO_MODE && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-sm text-gray-500 text-center mb-3">Demo accounts</p>
+            <div className="flex gap-3">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.username}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleDemoLogin(account)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

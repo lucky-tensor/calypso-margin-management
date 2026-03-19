@@ -5,12 +5,13 @@
  * the compiled frontend React application from `apps/web/dist`.
  */
 
-import { migrate } from 'db';
+import { migrate, seed, sql } from 'db';
 import { handleAuthRequest } from './api/auth';
 import { handleProductsRequest } from './api/products';
 import { handleOrdersRequest } from './api/orders';
 
 await migrate();
+await seed(sql);
 
 export default {
   port: Number(process.env.PORT) || 31415,
