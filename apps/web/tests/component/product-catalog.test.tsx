@@ -10,9 +10,9 @@ const fixtureProducts: Product[] = [
     id: 'prod-1',
     created_at: '2024-01-01T00:00:00Z',
     properties: {
-      name: 'Tela Soldada 50x50',
+      name: '4x4 Welded Wire 50x50',
       sku: 'TS-5050',
-      material: 'Aco Galvanizado',
+      material: 'Galvanized Steel',
       width_inches: 48,
       length_inches: 96,
       weight_per_sqft: 1.5,
@@ -28,9 +28,9 @@ const fixtureProducts: Product[] = [
     id: 'prod-2',
     created_at: '2024-01-02T00:00:00Z',
     properties: {
-      name: 'Tela Hexagonal',
+      name: 'Hex Wire Mesh',
       sku: 'TH-001',
-      material: 'Aco Inox',
+      material: 'Stainless Steel',
       width_inches: 36,
       length_inches: 120,
       weight_per_sqft: 0.8,
@@ -58,14 +58,14 @@ describe('ProductCatalog', () => {
 
     // Wait for the table to render
     await expect.element(screen.getByText('TS-5050')).toBeVisible();
-    await expect.element(screen.getByText('Tela Soldada 50x50')).toBeVisible();
-    await expect.element(screen.getByText('Aco Galvanizado')).toBeVisible();
+    await expect.element(screen.getByText('4x4 Welded Wire 50x50')).toBeVisible();
+    await expect.element(screen.getByText('Galvanized Steel')).toBeVisible();
     await expect.element(screen.getByText('TH-001')).toBeVisible();
-    await expect.element(screen.getByText('Tela Hexagonal')).toBeVisible();
+    await expect.element(screen.getByText('Hex Wire Mesh')).toBeVisible();
 
     // Column headers
     await expect.element(screen.getByText('SKU')).toBeVisible();
-    await expect.element(screen.getByText('Nome')).toBeVisible();
+    await expect.element(screen.getByText('Name')).toBeVisible();
     await expect.element(screen.getByText('Material')).toBeVisible();
   });
 
@@ -76,7 +76,7 @@ describe('ProductCatalog', () => {
 
     const screen = render(<ProductCatalog />);
 
-    await expect.element(screen.getByText(/Nenhum produto cadastrado/)).toBeVisible();
+    await expect.element(screen.getByText(/No products yet/)).toBeVisible();
   });
 
   test('opens add modal and submits product', async () => {
@@ -87,34 +87,34 @@ describe('ProductCatalog', () => {
     const screen = render(<ProductCatalog />);
 
     // Wait for empty state, then click add
-    await expect.element(screen.getByText(/Nenhum produto cadastrado/)).toBeVisible();
+    await expect.element(screen.getByText(/No products yet/)).toBeVisible();
 
-    await screen.getByRole('button', { name: 'Adicionar Produto' }).click();
+    await screen.getByRole('button', { name: 'Add Product' }).click();
 
     // Modal should open - verify form fields are present
-    await expect.element(screen.getByPlaceholder('Nome do produto')).toBeVisible();
+    await expect.element(screen.getByPlaceholder('Product name')).toBeVisible();
 
     // Fill in the form
-    const nameInput = screen.getByPlaceholder('Nome do produto');
-    await nameInput.fill('Novo Produto');
+    const nameInput = screen.getByPlaceholder('Product name');
+    await nameInput.fill('New Product');
 
-    const skuInput = screen.getByPlaceholder('Codigo SKU');
+    const skuInput = screen.getByPlaceholder('SKU code');
     await skuInput.fill('NP-001');
 
-    const materialInput = screen.getByPlaceholder('Tipo de material');
-    await materialInput.fill('Aco');
+    const materialInput = screen.getByPlaceholder('Material type');
+    await materialInput.fill('Steel');
 
     // Fill numeric fields using label text via page locators
-    await screen.getByLabelText('Largura (pol.)').fill('48');
-    await screen.getByLabelText('Comprimento (pol.)').fill('96');
-    await screen.getByLabelText('Custo por unidade (R$)').fill('25.00');
+    await screen.getByLabelText('Width (in.)').fill('48');
+    await screen.getByLabelText('Length (in.)').fill('96');
+    await screen.getByLabelText('Cost per each ($)').fill('25.00');
 
     // Submit the form
-    await screen.getByText('Salvar').click();
+    await screen.getByText('Save').click();
 
     // After save, the new product should appear in the table
     await expect.element(page.getByText('NP-001'), { timeout: 5000 }).toBeVisible();
-    await expect.element(page.getByText('Novo Produto'), { timeout: 5000 }).toBeVisible();
+    await expect.element(page.getByText('New Product'), { timeout: 5000 }).toBeVisible();
   });
 
   test('shows validation errors for missing required fields', async () => {
@@ -124,16 +124,16 @@ describe('ProductCatalog', () => {
 
     const screen = render(<ProductCatalog />);
 
-    await expect.element(screen.getByText(/Nenhum produto cadastrado/)).toBeVisible();
+    await expect.element(screen.getByText(/No products yet/)).toBeVisible();
 
-    await screen.getByRole('button', { name: 'Adicionar Produto' }).click();
+    await screen.getByRole('button', { name: 'Add Product' }).click();
 
     // Submit without filling anything
-    await screen.getByRole('button', { name: 'Salvar' }).click();
+    await screen.getByRole('button', { name: 'Save' }).click();
 
     // Should show validation errors
-    await expect.element(screen.getByText('Nome e obrigatorio')).toBeVisible();
-    await expect.element(screen.getByText('SKU e obrigatorio')).toBeVisible();
+    await expect.element(screen.getByText('Name is required')).toBeVisible();
+    await expect.element(screen.getByText('SKU is required')).toBeVisible();
   });
 
   test('edit button opens modal pre-filled with product data', async () => {
@@ -147,16 +147,16 @@ describe('ProductCatalog', () => {
     await expect.element(screen.getByText('TS-5050')).toBeVisible();
 
     // Click edit button
-    await screen.getByTitle('Editar').click();
+    await screen.getByTitle('Edit').click();
 
-    // Modal should open with "Editar Produto" title
-    await expect.element(screen.getByText('Editar Produto')).toBeVisible();
+    // Modal should open with "Edit Product" title
+    await expect.element(screen.getByText('Edit Product')).toBeVisible();
 
     // Fields should be pre-filled
-    const nameInput = screen.getByPlaceholder('Nome do produto');
-    await expect.element(nameInput).toHaveValue('Tela Soldada 50x50');
+    const nameInput = screen.getByPlaceholder('Product name');
+    await expect.element(nameInput).toHaveValue('4x4 Welded Wire 50x50');
 
-    const skuInput = screen.getByPlaceholder('Codigo SKU');
+    const skuInput = screen.getByPlaceholder('SKU code');
     await expect.element(skuInput).toHaveValue('TS-5050');
   });
 });

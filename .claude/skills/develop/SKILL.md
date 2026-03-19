@@ -138,7 +138,7 @@ Branch: {branch-name} (already pushed to remote with draft PR #{pr-number})
 
 ## Conventions
 - Use bun, never npm/npx/yarn
-- All UI text in pt-BR
+- All UI text in English
 - Follow the existing code patterns in the codebase
 ```
 

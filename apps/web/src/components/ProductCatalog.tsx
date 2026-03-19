@@ -3,15 +3,15 @@ import type { Product, ProductProperties, CostBasis } from 'core';
 import { Plus, Pencil, X } from 'lucide-react';
 
 const COST_BASIS_OPTIONS: { value: CostBasis; label: string }[] = [
-  { value: 'each', label: 'Unidade' },
-  { value: 'linear_foot', label: 'Pe linear' },
-  { value: 'square_foot', label: 'Pe quadrado' },
+  { value: 'each', label: 'Each' },
+  { value: 'linear_foot', label: 'Linear ft' },
+  { value: 'square_foot', label: 'Square ft' },
 ];
 
 const COST_BASIS_DISPLAY: Record<CostBasis, string> = {
-  each: 'Unidade',
-  linear_foot: 'Pe linear',
-  square_foot: 'Pe quadrado',
+  each: 'Each',
+  linear_foot: 'Linear ft',
+  square_foot: 'Square ft',
 };
 
 interface FormData {
@@ -63,25 +63,25 @@ function formDataFromProduct(p: ProductProperties): FormData {
 
 export function validateForm(form: FormData): string[] {
   const errors: string[] = [];
-  if (!form.name.trim()) errors.push('Nome e obrigatorio');
-  if (!form.sku.trim()) errors.push('SKU e obrigatorio');
+  if (!form.name.trim()) errors.push('Name is required');
+  if (!form.sku.trim()) errors.push('SKU is required');
   if (!form.width_inches || Number(form.width_inches) <= 0)
-    errors.push('Largura deve ser maior que 0');
+    errors.push('Width must be greater than 0');
   if (!form.length_inches || Number(form.length_inches) <= 0)
-    errors.push('Comprimento deve ser maior que 0');
+    errors.push('Length must be greater than 0');
 
   const basis = form.primary_cost_basis;
   if (basis === 'each' && !form.cost_per_each)
-    errors.push('Custo por unidade e obrigatorio quando a base de custo e unidade');
+    errors.push('Cost per each is required when cost basis is each');
   if (basis === 'linear_foot' && !form.cost_per_linft)
-    errors.push('Custo por pe linear e obrigatorio quando a base de custo e pe linear');
+    errors.push('Cost per linear ft is required when cost basis is linear foot');
   if (basis === 'square_foot' && !form.cost_per_sqft)
-    errors.push('Custo por pe quadrado e obrigatorio quando a base de custo e pe quadrado');
+    errors.push('Cost per square ft is required when cost basis is square foot');
 
   const mt = Number(form.margin_target);
   const mf = Number(form.margin_floor);
-  if (mf < 0) errors.push('Margem minima deve ser >= 0');
-  if (mt <= mf) errors.push('Margem alvo deve ser maior que margem minima');
+  if (mf < 0) errors.push('Margin floor must be >= 0');
+  if (mt <= mf) errors.push('Margin target must be greater than margin floor');
 
   return errors;
 }
@@ -147,14 +147,14 @@ function ProductModal({
 
       if (!res.ok) {
         const data = await res.json();
-        setErrors([data.error || 'Erro ao salvar produto']);
+        setErrors([data.error || 'Failed to save product']);
         return;
       }
 
       onSaved();
       onClose();
     } catch {
-      setErrors(['Erro de rede ao salvar produto']);
+      setErrors(['Network error saving product']);
     } finally {
       setSubmitting(false);
     }
@@ -165,7 +165,7 @@ function ProductModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between p-5 border-b border-zinc-200">
           <h2 className="text-lg font-semibold text-zinc-900">
-            {editingProduct ? 'Editar Produto' : 'Adicionar Produto'}
+            {editingProduct ? 'Edit Product' : 'Add Product'}
           </h2>
           <button
             onClick={onClose}
@@ -188,12 +188,12 @@ function ProductModal({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1">Nome</label>
+              <label className="block text-sm font-medium text-zinc-700 mb-1">Name</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="Nome do produto"
+                placeholder="Product name"
                 className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
               />
             </div>
@@ -203,7 +203,7 @@ function ProductModal({
                 type="text"
                 value={form.sku}
                 onChange={(e) => handleChange('sku', e.target.value)}
-                placeholder="Codigo SKU"
+                placeholder="SKU code"
                 className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
               />
             </div>
@@ -215,7 +215,7 @@ function ProductModal({
               type="text"
               value={form.material}
               onChange={(e) => handleChange('material', e.target.value)}
-              placeholder="Tipo de material"
+              placeholder="Material type"
               className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
             />
           </div>
@@ -223,7 +223,7 @@ function ProductModal({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label htmlFor="field-width" className="block text-sm font-medium text-zinc-700 mb-1">
-                Largura (pol.)
+                Width (in.)
               </label>
               <input
                 id="field-width"
@@ -240,7 +240,7 @@ function ProductModal({
                 htmlFor="field-length"
                 className="block text-sm font-medium text-zinc-700 mb-1"
               >
-                Comprimento (pol.)
+                Length (in.)
               </label>
               <input
                 id="field-length"
@@ -254,7 +254,7 @@ function ProductModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">
-                Peso por pe² (lb)
+                Weight per sq ft (lb)
               </label>
               <input
                 type="number"
@@ -269,7 +269,7 @@ function ProductModal({
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Base de custo primaria
+              Primary cost basis
             </label>
             <select
               value={form.primary_cost_basis}
@@ -290,7 +290,7 @@ function ProductModal({
                 htmlFor="field-cost-each"
                 className="block text-sm font-medium text-zinc-700 mb-1"
               >
-                Custo por unidade (R$)
+                Cost per each ($)
               </label>
               <input
                 id="field-cost-each"
@@ -304,7 +304,7 @@ function ProductModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">
-                Custo por pe lin. (R$)
+                Cost per lin. ft ($)
               </label>
               <input
                 type="number"
@@ -317,7 +317,7 @@ function ProductModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">
-                Custo por pe² (R$)
+                Cost per sq ft ($)
               </label>
               <input
                 type="number"
@@ -333,7 +333,7 @@ function ProductModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">
-                Margem alvo (%)
+                Target margin (%)
               </label>
               <input
                 type="number"
@@ -346,7 +346,7 @@ function ProductModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1">
-                Margem minima (%)
+                Margin floor (%)
               </label>
               <input
                 type="number"
@@ -365,14 +365,14 @@ function ProductModal({
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
             >
-              Cancelar
+              Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
             >
-              {submitting ? 'Salvando...' : 'Salvar'}
+              {submitting ? 'Saving...' : 'Save'}
             </button>
           </div>
         </form>
@@ -394,12 +394,12 @@ export const ProductCatalog: React.FC = () => {
     try {
       const res = await fetch('/api/products', { credentials: 'include' });
       if (!res.ok) {
-        throw new Error('Erro ao carregar produtos');
+        throw new Error('Failed to load products');
       }
       const data: Product[] = await res.json();
       setProducts(data);
     } catch {
-      setError('Erro ao carregar produtos');
+      setError('Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -443,19 +443,19 @@ export const ProductCatalog: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-zinc-900">Catalogo de Produtos</h2>
+        <h2 className="text-lg font-semibold text-zinc-900">Product Catalog</h2>
         <button
           onClick={openAdd}
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
         >
           <Plus size={16} />
-          Adicionar Produto
+          Add Product
         </button>
       </div>
 
       {products.length === 0 ? (
         <div className="text-zinc-400 text-sm py-8 text-center">
-          Nenhum produto cadastrado. Clique em &quot;Adicionar Produto&quot; para comecar.
+          No products yet. Click &quot;Add Product&quot; to get started.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
@@ -463,15 +463,15 @@ export const ProductCatalog: React.FC = () => {
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">SKU</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Nome</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Name</th>
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">Material</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Largura</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Comprimento</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Base de Custo</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Custo</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Margem Alvo</th>
-                <th className="text-right px-4 py-3 font-medium text-zinc-600">Margem Min.</th>
-                <th className="text-center px-4 py-3 font-medium text-zinc-600">Acoes</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Width</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Length</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Cost Basis</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Cost</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Target Margin</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">Margin Floor</th>
+                <th className="text-center px-4 py-3 font-medium text-zinc-600">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -498,7 +498,7 @@ export const ProductCatalog: React.FC = () => {
                       <button
                         onClick={() => openEdit(product)}
                         className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
-                        title="Editar"
+                        title="Edit"
                       >
                         <Pencil size={14} />
                       </button>
@@ -525,11 +525,11 @@ export const ProductCatalog: React.FC = () => {
 function getCostDisplay(p: ProductProperties): string {
   switch (p.primary_cost_basis) {
     case 'each':
-      return p.cost_per_each !== null ? `R$ ${p.cost_per_each.toFixed(2)}` : '—';
+      return p.cost_per_each !== null ? `$${p.cost_per_each.toFixed(2)}` : '—';
     case 'linear_foot':
-      return p.cost_per_linft !== null ? `R$ ${p.cost_per_linft.toFixed(2)}` : '—';
+      return p.cost_per_linft !== null ? `$${p.cost_per_linft.toFixed(2)}` : '—';
     case 'square_foot':
-      return p.cost_per_sqft !== null ? `R$ ${p.cost_per_sqft.toFixed(2)}` : '—';
+      return p.cost_per_sqft !== null ? `$${p.cost_per_sqft.toFixed(2)}` : '—';
     default:
       return '—';
   }

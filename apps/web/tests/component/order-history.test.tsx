@@ -11,7 +11,7 @@ const fixtureDraftOrder: Order = {
   properties: {
     customer: 'Acme Fencing Co',
     product_id: 'prod-1',
-    product_name: 'Tela Soldada 4x4',
+    product_name: '4x4 Welded Wire Mesh',
     quantity: 10,
     unit_of_measure: 'each',
     sell_price_per_unit: 45,
@@ -40,7 +40,7 @@ const fixtureConfirmedOrder: Order = {
   properties: {
     customer: 'Beta Supplies',
     product_id: 'prod-1',
-    product_name: 'Tela Soldada 4x4',
+    product_name: '4x4 Welded Wire Mesh',
     quantity: 5,
     unit_of_measure: 'linear_foot',
     sell_price_per_unit: 20,
@@ -69,7 +69,7 @@ const fixtureCancelledOrder: Order = {
   properties: {
     customer: 'Gamma Corp',
     product_id: 'prod-1',
-    product_name: 'Tela Soldada 4x4',
+    product_name: '4x4 Welded Wire Mesh',
     quantity: 3,
     unit_of_measure: 'square_foot',
     sell_price_per_unit: 5,
@@ -102,7 +102,7 @@ describe('OrderHistory', () => {
 
     const screen = render(<OrderHistory />);
 
-    await expect.element(screen.getByText('Nenhum pedido encontrado.')).toBeVisible();
+    await expect.element(screen.getByText('No orders found.')).toBeVisible();
   });
 
   test('renders order table with correct columns', async () => {
@@ -110,15 +110,15 @@ describe('OrderHistory', () => {
 
     const screen = render(<OrderHistory />);
 
-    await expect.element(screen.getByText('Historico de Pedidos')).toBeVisible();
-    await expect.element(screen.getByText('Data')).toBeVisible();
-    await expect.element(screen.getByText('Cliente')).toBeVisible();
-    await expect.element(screen.getByText('Produto')).toBeVisible();
-    await expect.element(screen.getByText('Qtd')).toBeVisible();
+    await expect.element(screen.getByText('Order History')).toBeVisible();
+    await expect.element(screen.getByText('Date')).toBeVisible();
+    await expect.element(screen.getByText('Customer')).toBeVisible();
+    await expect.element(screen.getByText('Product')).toBeVisible();
+    await expect.element(screen.getByText('Qty')).toBeVisible();
     await expect.element(screen.getByText('UOM')).toBeVisible();
-    await expect.element(screen.getByText('Receita')).toBeVisible();
-    await expect.element(screen.getByText('Custo')).toBeVisible();
-    await expect.element(screen.getByText('Margem %')).toBeVisible();
+    await expect.element(screen.getByText('Revenue')).toBeVisible();
+    await expect.element(screen.getByText('Cost')).toBeVisible();
+    await expect.element(screen.getByText('Margin %')).toBeVisible();
     await expect.element(screen.getByText('Status')).toBeVisible();
   });
 
@@ -128,8 +128,8 @@ describe('OrderHistory', () => {
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await expect.element(screen.getByText('Tela Soldada 4x4')).toBeVisible();
-    await expect.element(screen.getByRole('cell', { name: 'Rascunho' })).toBeVisible();
+    await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
+    await expect.element(screen.getByRole('cell', { name: 'Draft' })).toBeVisible();
   });
 
   test('margin % is green when at or above target', async () => {
@@ -142,7 +142,7 @@ describe('OrderHistory', () => {
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
 
     // The margin cell text should have emerald color class
-    const marginEl = screen.getByText(/28,9%/);
+    const marginEl = screen.getByText(/28\.9%/);
     await expect.element(marginEl).toBeVisible();
     const el = marginEl.element();
     expect(el.className).toContain('text-emerald-700');
@@ -156,7 +156,7 @@ describe('OrderHistory', () => {
 
     await expect.element(screen.getByText('Gamma Corp')).toBeVisible();
 
-    const marginEl = screen.getByText(/20,0%/);
+    const marginEl = screen.getByText(/20\.0%/);
     await expect.element(marginEl).toBeVisible();
     const el = marginEl.element();
     expect(el.className).toContain('text-amber-700');
@@ -170,7 +170,7 @@ describe('OrderHistory', () => {
 
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
 
-    const marginEl = screen.getByText(/10,0%/);
+    const marginEl = screen.getByText(/10\.0%/);
     await expect.element(marginEl).toBeVisible();
     const el = marginEl.element();
     expect(el.className).toContain('text-red-700');
@@ -188,8 +188,8 @@ describe('OrderHistory', () => {
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
     await expect.element(screen.getByText('Gamma Corp')).toBeVisible();
 
-    // Click "Rascunho" tab
-    await screen.getByRole('button', { name: 'Rascunho' }).click();
+    // Click "Draft" tab
+    await screen.getByRole('button', { name: 'Draft' }).click();
 
     // Only draft order should be visible
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
@@ -197,7 +197,7 @@ describe('OrderHistory', () => {
     await expect.element(screen.getByText('Gamma Corp')).not.toBeInTheDocument();
   });
 
-  test('status filter tab Confirmado shows only confirmed orders', async () => {
+  test('status filter tab Confirmed shows only confirmed orders', async () => {
     await commands.setFixtureState({
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder, fixtureCancelledOrder] },
     });
@@ -206,7 +206,7 @@ describe('OrderHistory', () => {
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
 
-    await screen.getByRole('button', { name: 'Confirmado' }).click();
+    await screen.getByRole('button', { name: 'Confirmed' }).click();
 
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
     await expect.element(screen.getByText('Acme Fencing Co')).not.toBeInTheDocument();
@@ -223,30 +223,34 @@ describe('OrderHistory', () => {
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
 
-    await screen.getByLabelText('Filtrar por cliente').fill('Acme');
+    await screen.getByLabelText('Filter by customer').fill('Acme');
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect.element(screen.getByText('Beta Supplies')).not.toBeInTheDocument();
   });
 
-  test('draft order has Confirmar and Cancelar buttons', async () => {
+  test('draft order has Confirm and Cancel buttons', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Confirmar' })).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Cancelar' })).toBeVisible();
+    await expect
+      .element(screen.getByRole('button', { name: 'Confirm', exact: true }))
+      .toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
   });
 
-  test('confirmed order has only Cancelar button', async () => {
+  test('confirmed order has only Cancel button', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureConfirmedOrder] } });
 
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Cancelar' })).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    await expect.element(screen.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByRole('button', { name: 'Confirm', exact: true }))
+      .not.toBeInTheDocument();
   });
 
   test('cancelled order has no action buttons', async () => {
@@ -255,34 +259,38 @@ describe('OrderHistory', () => {
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Gamma Corp')).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
-    await expect.element(screen.getByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument();
-  });
-
-  test('Confirmar button shows confirmation dialog', async () => {
-    await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
-
-    const screen = render(<OrderHistory />);
-
-    await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await screen.getByRole('button', { name: 'Confirmar' }).click();
-
-    await expect.element(screen.getByText('Deseja confirmar este pedido?')).toBeVisible();
     await expect
-      .element(screen.getByRole('button', { name: 'Confirmar cancelamento' }))
-      .toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Voltar' })).toBeVisible();
+      .element(screen.getByRole('button', { name: 'Confirm', exact: true }))
+      .not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole('button', { name: 'Cancel', exact: true }))
+      .not.toBeInTheDocument();
   });
 
-  test('Cancelar button shows confirmation dialog', async () => {
+  test('Confirm button shows confirmation dialog', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await screen.getByRole('button', { name: 'Cancelar' }).click();
+    await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
 
-    await expect.element(screen.getByText(/Deseja cancelar este pedido/)).toBeVisible();
+    await expect.element(screen.getByText('Confirm this order?')).toBeVisible();
+    await expect
+      .element(screen.getByRole('button', { name: 'Confirm cancellation' }))
+      .toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Go back' })).toBeVisible();
+  });
+
+  test('Cancel button shows confirmation dialog', async () => {
+    await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
+
+    const screen = render(<OrderHistory />);
+
+    await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
+    await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+    await expect.element(screen.getByText(/Cancel this order/)).toBeVisible();
   });
 
   test('confirming an order updates the row status', async () => {
@@ -291,16 +299,16 @@ describe('OrderHistory', () => {
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await screen.getByRole('button', { name: 'Confirmar' }).click();
+    await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
 
     // Dialog appears — confirm
     await expect
-      .element(screen.getByRole('button', { name: 'Confirmar cancelamento' }))
+      .element(screen.getByRole('button', { name: 'Confirm cancellation' }))
       .toBeVisible();
-    await screen.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+    await screen.getByRole('button', { name: 'Confirm cancellation' }).click();
 
-    // Row should now show "Confirmado"
-    await expect.element(screen.getByText('Confirmado')).toBeVisible();
+    // Row should now show "Confirmed"
+    await expect.element(screen.getByText('Confirmed')).toBeVisible();
   });
 
   test('cancelling an order updates the row status', async () => {
@@ -309,14 +317,14 @@ describe('OrderHistory', () => {
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await screen.getByRole('button', { name: 'Cancelar' }).click();
+    await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     // Dialog appears — confirm cancel
-    await expect.element(screen.getByText(/Deseja cancelar este pedido/)).toBeVisible();
-    await screen.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+    await expect.element(screen.getByText(/Cancel this order/)).toBeVisible();
+    await screen.getByRole('button', { name: 'Confirm cancellation' }).click();
 
-    // Row should now show "Cancelado"
-    await expect.element(screen.getByText('Cancelado')).toBeVisible();
+    // Row should now show "Cancelled"
+    await expect.element(screen.getByText('Cancelled')).toBeVisible();
   });
 
   test('confirmed order shows audit info', async () => {
@@ -324,7 +332,7 @@ describe('OrderHistory', () => {
 
     const screen = render(<OrderHistory />);
 
-    // Audit info shows "admin em ..."
+    // Audit info shows "admin at ..."
     await expect.element(screen.getByText(/admin/)).toBeVisible();
   });
 
@@ -336,7 +344,7 @@ describe('OrderHistory', () => {
     await expect.element(screen.getByText(/manager/)).toBeVisible();
   });
 
-  test('Todos tab shows all orders after filtering', async () => {
+  test('All tab shows all orders after filtering', async () => {
     await commands.setFixtureState({
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder] },
     });
@@ -345,12 +353,12 @@ describe('OrderHistory', () => {
 
     // Select only draft
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await screen.getByRole('button', { name: 'Rascunho' }).click();
+    await screen.getByRole('button', { name: 'Draft' }).click();
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect.element(screen.getByText('Beta Supplies')).not.toBeInTheDocument();
 
-    // Switch back to Todos
-    await screen.getByRole('button', { name: 'Todos' }).click();
+    // Switch back to All
+    await screen.getByRole('button', { name: 'All' }).click();
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
   });
 });
