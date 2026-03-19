@@ -78,18 +78,18 @@ interface ConfirmDialogProps {
 function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
         <p className="text-sm text-zinc-700 mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-md transition-colors"
           >
             Go back
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
           >
             Confirm cancellation
           </button>
@@ -215,7 +215,7 @@ export const OrderHistory: React.FC = () => {
             onChange={(e) => setCustomerFilter(e.target.value)}
             placeholder="Filter by customer..."
             aria-label="Filter by customer"
-            className="px-3 py-1.5 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm w-48"
+            className="px-3 py-1.5 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm w-48"
           />
         </div>
       </div>
@@ -250,7 +250,7 @@ export const OrderHistory: React.FC = () => {
 
       {/* Table */}
       {!loading && !error && orders.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
@@ -315,7 +315,7 @@ export const OrderHistory: React.FC = () => {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
                           p.status === 'confirmed'
                             ? 'bg-emerald-100 text-emerald-800'
                             : p.status === 'cancelled'

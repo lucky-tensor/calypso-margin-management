@@ -231,7 +231,7 @@ export const OrderEntry: React.FC = () => {
                     onChange={(e) => handleChange('customer', e.target.value)}
                     placeholder="Customer name"
                     tabIndex={1}
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
                   />
                 </div>
 
@@ -247,7 +247,7 @@ export const OrderEntry: React.FC = () => {
                     value={form.productId}
                     onChange={(e) => handleChange('productId', e.target.value)}
                     tabIndex={2}
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
                   >
                     <option value="">Select a product...</option>
                     {products.map((p) => (
@@ -275,7 +275,7 @@ export const OrderEntry: React.FC = () => {
                       onChange={(e) => handleChange('quantity', e.target.value)}
                       placeholder="0"
                       tabIndex={3}
-                      className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                      className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
                     />
                   </div>
                   <div>
@@ -290,7 +290,7 @@ export const OrderEntry: React.FC = () => {
                       value={form.uom}
                       onChange={(e) => handleChange('uom', e.target.value as UnitOfMeasure)}
                       tabIndex={4}
-                      className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white"
+                      className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
                     >
                       {UOM_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -317,7 +317,7 @@ export const OrderEntry: React.FC = () => {
                     onChange={(e) => handleChange('sellPrice', e.target.value)}
                     placeholder="0.00"
                     tabIndex={5}
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
                   />
                 </div>
 
@@ -334,7 +334,7 @@ export const OrderEntry: React.FC = () => {
                     onChange={(e) => handleChange('notes', e.target.value)}
                     placeholder="Notes about this order..."
                     rows={3}
-                    className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm resize-none"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm resize-none"
                   />
                 </div>
 
@@ -342,7 +342,7 @@ export const OrderEntry: React.FC = () => {
                   type="submit"
                   tabIndex={6}
                   disabled={submitting || !selectedProduct || !hasQty || !hasPrice}
-                  className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : 'Confirm Order'}
                 </button>
@@ -353,7 +353,7 @@ export const OrderEntry: React.FC = () => {
                 {selectedProduct ? (
                   <>
                     {/* Product context */}
-                    <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
+                    <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4">
                       <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">
                         Product Context
                       </p>
@@ -364,7 +364,7 @@ export const OrderEntry: React.FC = () => {
 
                     {/* Unit conversions */}
                     {computed ? (
-                      <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-2">
+                      <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 space-y-2">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
                           Unit Conversions
                         </p>
@@ -394,7 +394,7 @@ export const OrderEntry: React.FC = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
+                      <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
                           Unit Conversions
                         </p>
@@ -406,7 +406,7 @@ export const OrderEntry: React.FC = () => {
 
                     {/* Cost & Margin */}
                     {computed ? (
-                      <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4 space-y-2">
+                      <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 space-y-2">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
                           Cost & Margin
                         </p>
@@ -424,7 +424,7 @@ export const OrderEntry: React.FC = () => {
                         </div>
 
                         {/* Margin display */}
-                        <div className={`mt-3 rounded-xl border-2 p-4 ${marginClass}`}>
+                        <div className={`mt-3 rounded-lg border-2 p-4 ${marginClass}`}>
                           <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
                             Margin
                           </p>
@@ -439,7 +439,7 @@ export const OrderEntry: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
+                      <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4">
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
                           Cost & Margin
                         </p>

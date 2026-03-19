@@ -35,7 +35,7 @@ function App() {
       {/* Left Sidebar */}
       <nav className="w-16 shrink-0 border-r border-zinc-200 bg-white flex flex-col items-center py-6 justify-between z-10">
         <div className="flex flex-col items-center gap-6">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
             <span className="text-white font-black text-lg">M</span>
           </div>
 
@@ -45,7 +45,7 @@ function App() {
                 key={id}
                 onClick={() => setActiveView(id)}
                 title={label}
-                className={`p-3 rounded-xl flex items-center justify-center transition-all ${
+                className={`p-3 rounded-lg flex items-center justify-center transition-all ${
                   activeView === id
                     ? 'bg-emerald-50 text-emerald-600'
                     : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600'
@@ -61,7 +61,7 @@ function App() {
           <button
             onClick={logout}
             title="Logout"
-            className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
+            className="w-10 h-10 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
           >
             <User size={18} />
           </button>

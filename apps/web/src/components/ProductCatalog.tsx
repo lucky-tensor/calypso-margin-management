@@ -162,7 +162,7 @@ function ProductModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between p-5 border-b border-zinc-200">
           <h2 className="text-lg font-semibold text-zinc-900">
             {editingProduct ? 'Edit Product' : 'Add Product'}
@@ -194,7 +194,7 @@ function ProductModal({
                 value={form.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Product name"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -204,7 +204,7 @@ function ProductModal({
                 value={form.sku}
                 onChange={(e) => handleChange('sku', e.target.value)}
                 placeholder="SKU code"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
           </div>
@@ -216,7 +216,7 @@ function ProductModal({
               value={form.material}
               onChange={(e) => handleChange('material', e.target.value)}
               placeholder="Material type"
-              className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
             />
           </div>
 
@@ -232,7 +232,7 @@ function ProductModal({
                 value={form.width_inches}
                 onChange={(e) => handleChange('width_inches', e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -249,7 +249,7 @@ function ProductModal({
                 value={form.length_inches}
                 onChange={(e) => handleChange('length_inches', e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -262,7 +262,7 @@ function ProductModal({
                 value={form.weight_per_sqft}
                 onChange={(e) => handleChange('weight_per_sqft', e.target.value)}
                 placeholder="0"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
           </div>
@@ -274,7 +274,7 @@ function ProductModal({
             <select
               value={form.primary_cost_basis}
               onChange={(e) => handleChange('primary_cost_basis', e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm bg-white"
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
             >
               {COST_BASIS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -299,7 +299,7 @@ function ProductModal({
                 value={form.cost_per_each}
                 onChange={(e) => handleChange('cost_per_each', e.target.value)}
                 placeholder="—"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -312,7 +312,7 @@ function ProductModal({
                 value={form.cost_per_linft}
                 onChange={(e) => handleChange('cost_per_linft', e.target.value)}
                 placeholder="—"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -325,7 +325,7 @@ function ProductModal({
                 value={form.cost_per_sqft}
                 onChange={(e) => handleChange('cost_per_sqft', e.target.value)}
                 placeholder="—"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
           </div>
@@ -341,7 +341,7 @@ function ProductModal({
                 value={form.margin_target}
                 onChange={(e) => handleChange('margin_target', e.target.value)}
                 placeholder="25"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
             <div>
@@ -354,7 +354,7 @@ function ProductModal({
                 value={form.margin_floor}
                 onChange={(e) => handleChange('margin_floor', e.target.value)}
                 placeholder="15"
-                className="w-full px-3 py-2 border border-zinc-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
               />
             </div>
           </div>
@@ -363,14 +363,14 @@ function ProductModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-md transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50"
             >
               {submitting ? 'Saving...' : 'Save'}
             </button>
@@ -446,7 +446,7 @@ export const ProductCatalog: React.FC = () => {
         <h2 className="text-lg font-semibold text-zinc-900">Product Catalog</h2>
         <button
           onClick={openAdd}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
         >
           <Plus size={16} />
           Add Product
@@ -458,7 +458,7 @@ export const ProductCatalog: React.FC = () => {
           No products yet. Click &quot;Add Product&quot; to get started.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
