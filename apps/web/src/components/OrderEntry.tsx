@@ -337,7 +337,7 @@ function ByAreaPanel({ products, onSelectForQuote }: ByAreaPanelProps) {
   }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
 
   const handleSelectForQuote = (bundle: Bundle, bundleSellPrice: number) => {
-    onSelectForQuote(bundle.product.id, bundle.quantity, bundleSellPrice);
+    onSelectForQuote(bundle.items[0].product.id, bundle.items[0].quantity, bundleSellPrice);
   };
 
   const showEmptyState = hasSqft && products.length === 0;
@@ -429,7 +429,7 @@ function ByAreaPanel({ products, onSelectForQuote }: ByAreaPanelProps) {
           {/* Bundle cards */}
           {sortedBundles.map((bundle) => (
             <ByAreaBundleCard
-              key={bundle.product.id}
+              key={bundle.items[0].product.id}
               bundle={bundle}
               sellPricePerUnit={hasSellPrice ? sellPricePerUnit : 0}
               onSelectForQuote={handleSelectForQuote}
@@ -492,7 +492,7 @@ function ByWidthPanel({ products, onSelectForQuote }: ByWidthPanelProps) {
   };
 
   const handleSelectForQuote = (bundle: Bundle, sellPrice: number) => {
-    onSelectForQuote(bundle.product.id, bundle.quantity, sellPrice);
+    onSelectForQuote(bundle.items[0].product.id, bundle.items[0].quantity, sellPrice);
   };
 
   const showEmptyState = hasWidth && hasLength && rawBundles.length === 0;
@@ -597,7 +597,7 @@ function ByWidthPanel({ products, onSelectForQuote }: ByWidthPanelProps) {
           {/* Bundle cards */}
           {sortedBundles.map((bundle) => (
             <BundleCard
-              key={bundle.product.id}
+              key={bundle.items[0].product.id}
               bundle={bundle}
               sellPricePerUnit={hasSellPrice ? sellPricePerUnit : 0}
               onSelectForQuote={handleSelectForQuote}
