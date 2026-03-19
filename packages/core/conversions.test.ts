@@ -314,4 +314,77 @@ describe('computeOrderFields', () => {
     // 400 sqft * $0.80 = $320 — same as per-each for consistent rates
     expect(result.total_cost).toBeCloseTo(320, 6);
   });
+
+  it('computes negative margin when sell price is below cost', () => {
+    const product = makeProduct({ cost_per_each: 32 });
+    // 10 eaches at $20/each = $200 revenue, $320 cost → -$120 margin, -60% margin
+    const result = computeOrderFields(product, 10, 'each', 20);
+
+    expect(result.total_revenue).toBe(200);
+    expect(result.total_cost).toBe(320);
+    expect(result.margin_dollars).toBe(-120);
+    expect(result.margin_percent).toBeCloseTo(-60, 6);
+  });
+
+  it('handles very large quantities (1,000,000 eaches) without overflow', () => {
+    const product = makeProduct();
+    const result = computeOrderFields(product, 1_000_000, 'each', 45);
+
+    expect(Number.isFinite(result.qty_eaches)).toBe(true);
+    expect(Number.isFinite(result.qty_linft)).toBe(true);
+    expect(Number.isFinite(result.qty_sqft)).toBe(true);
+    expect(Number.isFinite(result.total_revenue)).toBe(true);
+    expect(Number.isFinite(result.total_cost)).toBe(true);
+    expect(Number.isFinite(result.margin_dollars)).toBe(true);
+    expect(Number.isFinite(result.margin_percent)).toBe(true);
+
+    expect(result.qty_eaches).toBe(1_000_000);
+    expect(result.qty_linft).toBe(10_000_000);
+    expect(result.qty_sqft).toBe(40_000_000);
+  });
+
+  it('handles products with 1"x1" dimensions correctly', () => {
+    const product = makeProduct({
+      width_inches: 1,
+      length_inches: 1,
+      cost_per_each: 0.01,
+    });
+    const result = computeOrderFields(product, 100, 'each', 0.05);
+
+    // linftPerEach = 1/12, sqftPerEach = 1/144
+    expect(result.qty_eaches).toBe(100);
+    expect(result.qty_linft).toBeCloseTo(100 / 12, 6);
+    expect(result.qty_sqft).toBeCloseTo(100 / 144, 6);
+  });
+});
+
+// ─── Round-trip consistency ──────────────────────────────────────────────────
+
+describe('convertUnits round-trip consistency', () => {
+  it('each→linft→sqft→each round-trip within floating-point tolerance', () => {
+    const product = makeProduct();
+
+    // Start with 10 eaches
+    const fromEach = convertUnits(product, 10, 'each');
+    // Convert the linft result back
+    const fromLinft = convertUnits(product, fromEach.linear_feet, 'linear_foot');
+    // Convert the sqft result back
+    const fromSqft = convertUnits(product, fromLinft.square_feet, 'square_foot');
+
+    expect(fromSqft.eaches).toBeCloseTo(10, 10);
+    expect(fromSqft.linear_feet).toBeCloseTo(100, 10);
+    expect(fromSqft.square_feet).toBeCloseTo(400, 10);
+  });
+
+  it('1,000,000 eaches conversions produce finite numbers', () => {
+    const product = makeProduct();
+    const result = convertUnits(product, 1_000_000, 'each');
+
+    expect(Number.isFinite(result.eaches)).toBe(true);
+    expect(Number.isFinite(result.linear_feet)).toBe(true);
+    expect(Number.isFinite(result.square_feet)).toBe(true);
+    expect(result.eaches).toBe(1_000_000);
+    expect(result.linear_feet).toBe(10_000_000);
+    expect(result.square_feet).toBe(40_000_000);
+  });
 });

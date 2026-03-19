@@ -83,11 +83,19 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
   // POST /api/orders
   if (req.method === 'POST' && url.pathname === '/api/orders') {
     try {
-      const body = await req.json();
+      let body: Record<string, unknown>;
+      try {
+        body = await req.json();
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       const { customer, product_id, quantity, unit_of_measure, sell_price_per_unit, notes } = body;
 
-      if (!customer) {
+      if (!customer || (typeof customer === 'string' && customer.trim() === '')) {
         return new Response(JSON.stringify({ error: 'Missing required field: customer' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -110,6 +118,17 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
+
+      const validUnits = ['each', 'linear_foot', 'square_foot'];
+      if (!validUnits.includes(unit_of_measure as string)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid unit_of_measure: ${unit_of_measure}` }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
       }
       if (sell_price_per_unit === undefined || sell_price_per_unit === null) {
         return new Response(
@@ -145,6 +164,19 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
 
       // Compute all derived order fields
       const computed = computeOrderFields(product, quantity, unit_of_measure, sell_price_per_unit);
+
+      // Reject orders below the product's margin floor
+      if (computed.margin_percent < product.properties.margin_floor) {
+        return new Response(
+          JSON.stringify({
+            error: `Margin below floor: ${computed.margin_percent.toFixed(2)}% < floor ${product.properties.margin_floor}%`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
 
       const properties: OrderProperties = {
         customer,
@@ -211,7 +243,15 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         });
       }
 
-      const body = await req.json();
+      let body: Record<string, unknown>;
+      try {
+        body = await req.json();
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const currentProps = existing[0].properties;
       const currentStatus = currentProps.status;
       const newStatus = body.status;
@@ -225,7 +265,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         };
 
         const allowed = validTransitions[currentStatus] ?? [];
-        if (!allowed.includes(newStatus)) {
+        if (!allowed.includes(newStatus as string)) {
           return new Response(
             JSON.stringify({
               error: `Invalid status transition: ${currentStatus} -> ${newStatus}`,

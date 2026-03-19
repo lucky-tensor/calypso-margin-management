@@ -514,6 +514,290 @@ test('PATCH /api/orders/:id returns 404 for nonexistent order', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/orders — missing field rejection
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders missing customer returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('customer');
+});
+
+test('POST /api/orders missing product_id returns 400', async () => {
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Test Customer',
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('product_id');
+});
+
+test('POST /api/orders missing quantity returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Test Customer',
+      product_id: product.id,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('quantity');
+});
+
+test('POST /api/orders missing unit_of_measure returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Test Customer',
+      product_id: product.id,
+      quantity: 10,
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('unit_of_measure');
+});
+
+test('POST /api/orders missing sell_price_per_unit returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Test Customer',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('sell_price_per_unit');
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — invalid unit_of_measure
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders with invalid unit_of_measure returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Test Customer',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'kilogram',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('kilogram');
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — quantity edge cases
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders with quantity=0 returns 201', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Zero Quantity Customer',
+      product_id: product.id,
+      quantity: 0,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  // quantity=0 → revenue=0, cost=0, margin_percent=0 which is < floor 15 → 400
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('Margin below floor');
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — margin floor enforcement
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders returns 400 when margin is below floor', async () => {
+  // Product: cost_per_each=$32, margin_floor=15%
+  // At 10 eaches, cost=$320
+  // For margin_percent = 14% (below floor):
+  //   margin_percent = (revenue - cost) / revenue * 100 = 14
+  //   revenue - cost = 0.14 * revenue
+  //   revenue = cost / (1 - 0.14) = 320 / 0.86 ≈ 372.09
+  //   sell_price_per_unit = 372.09 / 10 ≈ 37.21
+  // Let's use $37/each → revenue=$370, margin=$50, margin%=13.51% (below 15%)
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Below Floor Customer',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 37.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('Margin below floor');
+});
+
+test('POST /api/orders returns 201 when margin equals exactly the floor (inclusive)', async () => {
+  // Product: cost_per_each=$32, margin_floor=15%
+  // For margin_percent = 15% (at floor):
+  //   revenue = cost / (1 - 0.15) = 320 / 0.85 ≈ 376.47
+  //   sell_price_per_unit = 376.47 / 10 ≈ 37.647...
+  // Exact: sell = 320 / (10 * 0.85) = 37.647058...
+  // Let's compute: 10 * 37.647058823529 = 376.47058..., cost=320
+  // margin = 56.47058..., margin% = 56.47058.../376.47058... * 100 = 15.0000...
+  const product = await createTestProduct();
+  const exactSellPrice = 32 / 0.85; // 37.647058823529...
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'At Floor Customer',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: exactSellPrice,
+    }),
+  });
+  expect(res.status).toBe(201);
+  const order = await res.json();
+  expect(order.properties.margin_percent).toBeCloseTo(15, 1);
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — malformed body
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders with non-JSON body returns 400', async () => {
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain', Cookie: authCookie },
+    body: 'this is not json',
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('Invalid JSON');
+});
+
+test('POST /api/orders with empty body returns 400', async () => {
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: '',
+  });
+  expect(res.status).toBe(400);
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — empty string customer name
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders with empty string customer returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: '',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('customer');
+});
+
+test('POST /api/orders with whitespace-only customer returns 400', async () => {
+  const product = await createTestProduct();
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: '   ',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('customer');
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/orders/:id — malformed JSON body
+// ---------------------------------------------------------------------------
+
+test('PATCH /api/orders/:id with malformed JSON returns error (not 500)', async () => {
+  const product = await createTestProduct();
+
+  const createRes = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Malformed PATCH Customer',
+      product_id: product.id,
+      quantity: 5,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const order = await createRes.json();
+
+  const patchRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: 'not valid json{{{',
+  });
+  expect(patchRes.status).toBe(400);
+  const body = await patchRes.json();
+  expect(body.error).toContain('Invalid JSON');
+});
+
+// ---------------------------------------------------------------------------
 
 /** Poll the server until it responds or we time out. */
 async function waitForServer(base: string): Promise<void> {
