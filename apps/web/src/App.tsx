@@ -60,6 +60,7 @@ function App() {
         <div className="flex flex-col items-center gap-4">
           <button
             onClick={logout}
+            title="Logout"
             className="w-10 h-10 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
           >
             <User size={18} />
