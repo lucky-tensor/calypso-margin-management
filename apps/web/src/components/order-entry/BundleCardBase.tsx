@@ -26,6 +26,10 @@ export interface BundleCardBaseProps {
     }>,
   ) => void;
   creating?: boolean;
+  /** Whether this bundle has the lowest costTotal among all shown bundles */
+  isBestMargin?: boolean;
+  /** Whether this bundle has the lowest overage among all shown bundles */
+  isLeastWaste?: boolean;
 }
 
 export function BundleCardBase({
@@ -35,6 +39,8 @@ export function BundleCardBase({
   customer,
   onCreateOrders,
   creating = false,
+  isBestMargin = false,
+  isLeastWaste = false,
 }: BundleCardBaseProps) {
   const { totalLinft, totalSqft, overage, items } = bundle;
 
@@ -138,6 +144,22 @@ export function BundleCardBase({
 
   return (
     <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
+      {/* Pill badges */}
+      {(isBestMargin || isLeastWaste) && (
+        <div className="flex gap-1.5">
+          {isBestMargin && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
+              Best Margin
+            </span>
+          )}
+          {isLeastWaste && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">
+              Least Waste
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Item rows */}
       {items.map((item) => {
         const p = item.product.properties;
