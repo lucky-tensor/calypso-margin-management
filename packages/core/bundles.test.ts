@@ -37,8 +37,11 @@ describe('findBundlesByWidth', () => {
     // Request 200 linft (2400 inches) at 48" wide
     const result = findBundlesByWidth(products, 48, 2400);
 
-    expect(result).toHaveLength(2);
-    expect(result.every((b) => b.product.properties.width_inches === 48)).toBe(true);
+    // At minimum the 2 single-product bundles for 48"-wide products appear
+    expect(result.length).toBeGreaterThanOrEqual(2);
+    expect(
+      result.every((b) => b.items.every((i) => i.product.properties.width_inches === 48)),
+    ).toBe(true);
   });
 
   it('calculates correct unit counts for each matching product', () => {
@@ -49,11 +52,15 @@ describe('findBundlesByWidth', () => {
       makeProduct('p3', { width_inches: 48, length_inches: 60, cost_per_each: 18 }),
     ];
 
-    const result = findBundlesByWidth(products, 48, 2400);
-    const byId = Object.fromEntries(result.map((b) => [b.product.id, b]));
+    const result = findBundlesByWidth(products, 48, 2400, { maxBundles: 100 });
+    // Find single-product bundles for p1 and p3
+    const p1Bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p1');
+    const p3Bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p3');
 
-    expect(byId['p1'].quantity).toBe(20);
-    expect(byId['p3'].quantity).toBe(40);
+    expect(p1Bundle).toBeDefined();
+    expect(p3Bundle).toBeDefined();
+    expect(p1Bundle!.items[0].quantity).toBe(20);
+    expect(p3Bundle!.items[0].quantity).toBe(40);
   });
 
   it('calculates totalSqft, totalLinft, and overage correctly', () => {
@@ -67,7 +74,7 @@ describe('findBundlesByWidth', () => {
 
     const [bundle] = findBundlesByWidth(products, 48, 2400);
 
-    expect(bundle.quantity).toBe(20);
+    expect(bundle.items[0].quantity).toBe(20);
     expect(bundle.totalLinft).toBeCloseTo(200, 10);
     expect(bundle.totalSqft).toBeCloseTo(800, 10);
     expect(bundle.overage).toBeCloseTo(0, 10);
@@ -78,15 +85,16 @@ describe('findBundlesByWidth', () => {
     //   totalLinft = 21 * 10 = 210 linft
     //   totalSqft  = 21 * 40 = 840 sqft
     //   requestedSqft = (48 * 2500) / 144 ≈ 833.33 sqft
-    //   overage = 840 - 833.33... ≈ 6.67 sqft
+    //   overage in linft = 210 - (2500/12) ≈ 1.667 linft
     const products = [
       makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
     ];
 
     const [bundle] = findBundlesByWidth(products, 48, 2500);
 
-    expect(bundle.quantity).toBe(21);
-    expect(bundle.overage).toBeCloseTo(840 - (48 * 2500) / 144, 6);
+    expect(bundle.items[0].quantity).toBe(21);
+    // overage is in linft: 21*10 - 2500/12
+    expect(bundle.overage).toBeCloseTo(21 * 10 - 2500 / 12, 6);
   });
 
   it('returns empty array when no products match the width', () => {
@@ -113,8 +121,6 @@ describe('findBundlesByWidth', () => {
 
     const result = findBundlesByWidth(products, 48, 2400);
 
-    expect(result[0].product.id).toBe('cheap');
-    expect(result[1].product.id).toBe('expensive');
     expect(result[0].costTotal).toBeLessThanOrEqual(result[1].costTotal);
   });
 
@@ -144,9 +150,10 @@ describe('findBundlesByWidth', () => {
 
     const result = findBundlesByWidth(products, 48, 2400, { maxProducts: 3 });
 
-    expect(result).toHaveLength(3);
-    expect(result.map((b) => b.product.id)).not.toContain('p4');
-    expect(result.map((b) => b.product.id)).not.toContain('p5');
+    // With maxProducts=3, only p1/p2/p3 are eligible; no bundle should reference p4 or p5
+    const allIds = result.flatMap((b) => b.items.map((i) => i.product.id));
+    expect(allIds).not.toContain('p4');
+    expect(allIds).not.toContain('p5');
   });
 
   it('enforces maxBundles backstop — returns only the N cheapest bundles', () => {
@@ -161,9 +168,7 @@ describe('findBundlesByWidth', () => {
     const result = findBundlesByWidth(products, 48, 2400, { maxBundles: 2 });
 
     expect(result).toHaveLength(2);
-    // Should be the two cheapest
-    expect(result[0].product.id).toBe('p1');
-    expect(result[1].product.id).toBe('p2');
+    expect(result[0].costTotal).toBeLessThanOrEqual(result[1].costTotal);
   });
 
   it('returns overage of 0 when requested length is exact multiple of product length', () => {
@@ -175,6 +180,118 @@ describe('findBundlesByWidth', () => {
     const [bundle] = findBundlesByWidth(products, 48, 2400);
 
     expect(bundle.overage).toBe(0);
+  });
+
+  // ─── New multi-product tests ──────────────────────────────────────────────
+
+  it('single-product bundles have items.length === 1', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400);
+
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result[0].items).toHaveLength(1);
+  });
+
+  it('all items in a width-match bundle share the same width_inches', () => {
+    // 2 products at 48", request 200 linft (2400")
+    // Multi-product bundles should only combine 48"-wide products
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+      makeProduct('B', { width_inches: 48, length_inches: 168, cost_per_each: 40 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400);
+
+    for (const bundle of result) {
+      for (const item of bundle.items) {
+        expect(item.product.properties.width_inches).toBe(48);
+      }
+    }
+  });
+
+  it('returns a multi-product bundle when combination reduces overage', () => {
+    // Product A: 48"x120" (10ft rolls), cost_per_each=20
+    // Product B: 48"x168" (14ft rolls), cost_per_each=25
+    // Target: 200 linft (2400 inches)
+    //
+    // Single-product: A alone → ceil(2400/120)=20 rolls → 200ft → 0ft overage (exact fit)
+    // So both products fit exactly or near exactly — but let's use a target that creates overage.
+    //
+    // Target: 205 linft (2460 inches)
+    // A alone: ceil(2460/120) = 21 rolls → 210ft → 5ft overage
+    // B alone: ceil(2460/168) = 15 rolls → 210ft → 5ft overage
+    // Mix: 13 A (130ft) + 1 B (14ft) = ... no. Let's try:
+    //   n_A=18 (180ft) + n_B=2 (28ft) = 208ft → 3ft overage (better than 5ft)
+    //   n_A=5 (50ft) + n_B=11 (154ft) = 204ft → still no
+    //   n_A=1 (10ft) + n_B=14 (196ft) = 206ft → 1ft overage (better)
+    //   n_A=3 (30ft) + n_B=13 (182ft) = 212ft → 7ft (worse)
+    //   n_A=7 (70ft) + n_B=10 (140ft) = 210ft → 5ft
+    //   n_A=14 (140ft) + n_B=5 (70ft) = 210ft → 5ft
+    //   n_A=1 (10ft) + n_B=14 (196ft) = 206ft → 1ft overage ← best multi
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 48, length_inches: 168, cost_per_each: 25 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2460, { maxBundles: 20 });
+
+    const multiProduct = result.filter((b) => b.items.length > 1);
+    expect(multiProduct.length).toBeGreaterThan(0);
+
+    // The best multi-product combo should have less overage than single-product best
+    const singleBestOverage = Math.min(
+      ...result.filter((b) => b.items.length === 1).map((b) => b.overage),
+    );
+    const multiBestOverage = Math.min(...multiProduct.map((b) => b.overage));
+    expect(multiBestOverage).toBeLessThan(singleBestOverage);
+  });
+
+  it('maxDepth limits distinct product types per bundle', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 10 }),
+      makeProduct('p2', { width_inches: 48, length_inches: 100, cost_per_each: 12 }),
+      makeProduct('p3', { width_inches: 48, length_inches: 80, cost_per_each: 14 }),
+      makeProduct('p4', { width_inches: 48, length_inches: 60, cost_per_each: 16 }),
+      makeProduct('p5', { width_inches: 48, length_inches: 40, cost_per_each: 18 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400, { maxDepth: 2, maxBundles: 100 });
+
+    for (const bundle of result) {
+      expect(bundle.items.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('maxIterations is enforced — returns within finite time for large catalogs', () => {
+    // Create many products to generate lots of combinations
+    const products = Array.from({ length: 20 }, (_, i) =>
+      makeProduct(`p${i}`, {
+        width_inches: 48,
+        length_inches: 100 + i * 10,
+        cost_per_each: 10 + i,
+      }),
+    );
+
+    const start = Date.now();
+    const result = findBundlesByWidth(products, 48, 5000, { maxIterations: 10 });
+    const elapsed = Date.now() - start;
+
+    // Should return quickly (well under 1 second)
+    expect(elapsed).toBeLessThan(1000);
+    // Should still return some results (single-product bundles at minimum)
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('overageUnit is linft for width-mode bundles', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const [bundle] = findBundlesByWidth(products, 48, 2400);
+    expect(bundle.overageUnit).toBe('linft');
   });
 });
 
@@ -192,7 +309,8 @@ describe('findBundlesBySqft', () => {
 
     const result = findBundlesBySqft(products, 500);
 
-    expect(result).toHaveLength(5);
+    // At minimum the 5 single-product bundles are returned
+    expect(result.length).toBeGreaterThanOrEqual(5);
   });
 
   it('calculates correct quantities and overage for each product', () => {
@@ -206,15 +324,19 @@ describe('findBundlesBySqft', () => {
     ];
 
     const result = findBundlesBySqft(products, 500);
-    const byId = Object.fromEntries(result.map((b) => [b.product.id, b]));
+    const p1Bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p1');
+    const p2Bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p2');
 
-    expect(byId['p1'].quantity).toBe(13);
-    expect(byId['p1'].totalSqft).toBeCloseTo(520, 6);
-    expect(byId['p1'].overage).toBeCloseTo(20, 6);
+    expect(p1Bundle).toBeDefined();
+    expect(p2Bundle).toBeDefined();
 
-    expect(byId['p2'].quantity).toBe(10);
-    expect(byId['p2'].totalSqft).toBeCloseTo(500, 6);
-    expect(byId['p2'].overage).toBeCloseTo(0, 6);
+    expect(p1Bundle!.items[0].quantity).toBe(13);
+    expect(p1Bundle!.totalSqft).toBeCloseTo(520, 6);
+    expect(p1Bundle!.overage).toBeCloseTo(20, 6);
+
+    expect(p2Bundle!.items[0].quantity).toBe(10);
+    expect(p2Bundle!.totalSqft).toBeCloseTo(500, 6);
+    expect(p2Bundle!.overage).toBeCloseTo(0, 6);
   });
 
   it('returns empty array for empty product list', () => {
@@ -230,7 +352,6 @@ describe('findBundlesBySqft', () => {
 
     const result = findBundlesBySqft(products, 500);
 
-    expect(result[0].product.id).toBe('cheap');
     expect(result[0].costTotal).toBeLessThanOrEqual(result[1].costTotal);
   });
 
@@ -246,8 +367,7 @@ describe('findBundlesBySqft', () => {
     const result = findBundlesBySqft(products, 500, { maxBundles: 2 });
 
     expect(result).toHaveLength(2);
-    expect(result[0].product.id).toBe('p1');
-    expect(result[1].product.id).toBe('p2');
+    expect(result[0].costTotal).toBeLessThanOrEqual(result[1].costTotal);
   });
 
   it('enforces maxProducts backstop', () => {
@@ -261,9 +381,9 @@ describe('findBundlesBySqft', () => {
 
     const result = findBundlesBySqft(products, 500, { maxProducts: 3 });
 
-    expect(result).toHaveLength(3);
-    expect(result.map((b) => b.product.id)).not.toContain('p4');
-    expect(result.map((b) => b.product.id)).not.toContain('p5');
+    const allIds = result.flatMap((b) => b.items.map((i) => i.product.id));
+    expect(allIds).not.toContain('p4');
+    expect(allIds).not.toContain('p5');
   });
 
   it('calculates costTotal, pricePerSqft, pricePerLinft correctly', () => {
@@ -277,11 +397,13 @@ describe('findBundlesBySqft', () => {
       makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
     ];
 
-    const [bundle] = findBundlesBySqft(products, 500);
+    const result = findBundlesBySqft(products, 500);
+    const bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p1');
 
-    expect(bundle.costTotal).toBeCloseTo(13 * 32, 6);
-    expect(bundle.pricePerSqft).toBeCloseTo(416 / 520, 6);
-    expect(bundle.pricePerLinft).toBeCloseTo(416 / 130, 6);
+    expect(bundle).toBeDefined();
+    expect(bundle!.costTotal).toBeCloseTo(13 * 32, 6);
+    expect(bundle!.pricePerSqft).toBeCloseTo(416 / 520, 6);
+    expect(bundle!.pricePerLinft).toBeCloseTo(416 / 130, 6);
   });
 
   it('overage is 0 when requested sqft is exact multiple of product sqft', () => {
@@ -291,9 +413,112 @@ describe('findBundlesBySqft', () => {
       makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
     ];
 
-    const [bundle] = findBundlesBySqft(products, 400);
+    const result = findBundlesBySqft(products, 400);
+    const bundle = result.find((b) => b.items.length === 1 && b.items[0].product.id === 'p1');
 
-    expect(bundle.quantity).toBe(10);
-    expect(bundle.overage).toBe(0);
+    expect(bundle).toBeDefined();
+    expect(bundle!.items[0].quantity).toBe(10);
+    expect(bundle!.overage).toBe(0);
+  });
+
+  // ─── New multi-product tests ──────────────────────────────────────────────
+
+  it('single-product bundles have items.length === 1', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const result = findBundlesBySqft(products, 500);
+
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result[0].items).toHaveLength(1);
+  });
+
+  it('returns multi-product bundles mixing products of different dimensions', () => {
+    // Product A: 48"x120" (sqftPerEach=40), cost=20
+    // Product B: 60"x120" (sqftPerEach=50), cost=25
+    // Product C: 36"x120" (sqftPerEach=30), cost=15
+    // Target: 500 sqft
+    //
+    // Single-product options:
+    //   A alone: ceil(500/40)=13 → 520 sqft → 20 overage
+    //   B alone: ceil(500/50)=10 → 500 sqft → 0 overage (exact)
+    //   C alone: ceil(500/30)=17 → 510 sqft → 10 overage
+    //
+    // Since B can hit 0 overage, let's use target=505 sqft
+    //   A alone: ceil(505/40)=13 → 520 sqft → 15 overage
+    //   B alone: ceil(505/50)=11 → 550 sqft → 45 overage
+    //   C alone: ceil(505/30)=17 → 510 sqft → 5 overage
+    // A+C mix: n_A=4 (160sqft) + n_C=12 (360sqft) = 520sqft → 15 overage
+    //          n_A=1 (40sqft) + n_C=16 (480sqft) = 520sqft → 15 overage
+    //          n_A=3 (120sqft) + n_C=13 (390sqft) = 510sqft → 5 overage
+    //          n_A=0 + n_C: single product
+    // Actually n_A=5 (200) + n_C=11 (330) = 530 → 25 overage
+    // n_A=2 (80) + n_C=15 (450) = 530 → 25 overage
+    // Hmm. Let's try target=503:
+    //   C alone: ceil(503/30)=17 → 510 → 7 overage
+    //   A+B: n_A=1(40)+n_B=10(500)=540 → 37
+    //        n_A=3(120)+n_B=8(400)=520 → 17
+    //   Doesn't help much. Use simpler: target=505, expect multi-product to appear.
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 60, length_inches: 120, cost_per_each: 25 }),
+      makeProduct('C', { width_inches: 36, length_inches: 120, cost_per_each: 15 }),
+    ];
+
+    const result = findBundlesBySqft(products, 505, { maxBundles: 50 });
+
+    const multiProduct = result.filter((b) => b.items.length > 1);
+    expect(multiProduct.length).toBeGreaterThan(0);
+
+    // Multi-product bundles can mix different widths
+    const hasMultiWidth = multiProduct.some((b) => {
+      const widths = new Set(b.items.map((i) => i.product.properties.width_inches));
+      return widths.size > 1;
+    });
+    expect(hasMultiWidth).toBe(true);
+  });
+
+  it('maxDepth limits distinct product types per bundle', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 10 }),
+      makeProduct('p2', { width_inches: 60, length_inches: 100, cost_per_each: 12 }),
+      makeProduct('p3', { width_inches: 36, length_inches: 80, cost_per_each: 14 }),
+      makeProduct('p4', { width_inches: 72, length_inches: 60, cost_per_each: 16 }),
+      makeProduct('p5', { width_inches: 48, length_inches: 40, cost_per_each: 18 }),
+    ];
+
+    const result = findBundlesBySqft(products, 500, { maxDepth: 2, maxBundles: 100 });
+
+    for (const bundle of result) {
+      expect(bundle.items.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('maxIterations is enforced — returns within finite time for large catalogs', () => {
+    // Create many products to generate lots of combinations
+    const products = Array.from({ length: 20 }, (_, i) =>
+      makeProduct(`p${i}`, {
+        width_inches: 48 + i * 4,
+        length_inches: 100 + i * 10,
+        cost_per_each: 10 + i,
+      }),
+    );
+
+    const start = Date.now();
+    const result = findBundlesBySqft(products, 5000, { maxIterations: 10 });
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(1000);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('overageUnit is sqft for area-mode bundles', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const [bundle] = findBundlesBySqft(products, 400);
+    expect(bundle.overageUnit).toBe('sqft');
   });
 });
