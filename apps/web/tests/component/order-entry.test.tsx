@@ -62,13 +62,13 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    await screen.getByLabelText('Sell price per unit ($)').fill('45');
+    // Default UOM is square_foot; 200 sqft = 5 eaches = 50 linear feet
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
 
-    // 10 eaches = 100 linear feet = 400 square feet
-    await expect.element(screen.getByText(/10.*units/)).toBeVisible();
-    await expect.element(screen.getByText(/100.*lin ft/)).toBeVisible();
-    await expect.element(screen.getByText(/400.*sq ft/)).toBeVisible();
+    await expect.element(screen.getByText(/5.*units/)).toBeVisible();
+    await expect.element(screen.getByText(/50.*lin ft/)).toBeVisible();
+    await expect.element(screen.getByText(/200.*sq ft/)).toBeVisible();
   });
 
   test('entering sell price shows revenue, cost, and margin', async () => {
@@ -77,13 +77,13 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    await screen.getByLabelText('Sell price per unit ($)').fill('45');
+    // 200 sqft at $1.20/sqft: Revenue = 240, Cost = 5 × 32 = 160, Margin = 80/240 = 33.3%
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
 
-    // Revenue: 10 * 45 = 450, Cost: 10 * 32 = 320, Margin: 130 / 450 = 28.9%
-    await expect.element(screen.getByText(/450/)).toBeVisible();
-    await expect.element(screen.getByText(/320/)).toBeVisible();
-    await expect.element(screen.getByText(/28\.9%/)).toBeVisible();
+    await expect.element(screen.getByText(/240/)).toBeVisible();
+    await expect.element(screen.getByText(/160/)).toBeVisible();
+    await expect.element(screen.getByText(/33\.3%/)).toBeVisible();
   });
 
   test('margin display is green when at or above target', async () => {
@@ -92,14 +92,12 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    // 28.9% margin — above 25% target → healthy/green
-    await screen.getByLabelText('Sell price per unit ($)').fill('45');
+    // 200 sqft at $1.20/sqft → 33.3% margin — above 25% target → healthy/green
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
 
-    // The margin box should have emerald color classes
-    const marginSection = screen.getByText('28.9%');
+    const marginSection = screen.getByText('33.3%');
     await expect.element(marginSection).toBeVisible();
-    // Check the parent container has emerald styling via the percent element
     const marginEl = marginSection.element();
     expect(marginEl.closest('.bg-emerald-50')).not.toBeNull();
   });
@@ -110,10 +108,9 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    // To get ~20% margin: revenue = cost / (1 - 0.20) = 320 / 0.80 = 400, price per each = 40
-    // Actual: 10 * 40 = 400 revenue, 10 * 32 = 320 cost, margin = 80/400 = 20% — between 15% floor and 25% target
-    await screen.getByLabelText('Sell price per unit ($)').fill('40');
+    // 200 sqft at $1.00/sqft: Revenue = 200, Cost = 160, Margin = 40/200 = 20% — between 15% floor and 25% target
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.00');
 
     const marginSection = screen.getByText('20.0%');
     await expect.element(marginSection).toBeVisible();
@@ -127,11 +124,11 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    // To get < 15% margin: price = 35, revenue = 350, cost = 320, margin = 30/350 = 8.6%
-    await screen.getByLabelText('Sell price per unit ($)').fill('35');
+    // 200 sqft at $0.90/sqft: Revenue = 180, Cost = 160, Margin = 20/180 = 11.1% — below 15% floor
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('0.90');
 
-    const marginSection = screen.getByText('8.6%');
+    const marginSection = screen.getByText('11.1%');
     await expect.element(marginSection).toBeVisible();
     const marginEl = marginSection.element();
     expect(marginEl.closest('.bg-red-50')).not.toBeNull();
@@ -157,10 +154,10 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    await screen.getByLabelText('Sell price per unit ($)').fill('45');
+    // 200 sqft = 5 eaches (integer) — no fractional warning
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
 
-    // 10 eaches — no fractional warning
     await expect.element(screen.getByText(/Fractional unit/)).not.toBeInTheDocument();
   });
 
@@ -171,8 +168,8 @@ describe('OrderEntry', () => {
 
     await screen.getByLabelText('Customer').fill('Acme Fencing Co');
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Quantity').fill('10');
-    await screen.getByLabelText('Sell price per unit ($)').fill('45');
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
 
     await screen.getByRole('button', { name: 'Confirm Order' }).click();
 
