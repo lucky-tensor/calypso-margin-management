@@ -7,9 +7,10 @@ const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
   { value: 'linear_foot', label: 'Linear ft' },
 ];
 
-function zeroMarginPrice(product: Product, uom: UnitOfMeasure): string {
+function targetMarginPrice(product: Product, uom: UnitOfMeasure): string {
   const cost = calculateCost(product, convertUnits(product, 1, uom));
-  return cost.toFixed(2);
+  const target = product.properties.margin_target / 100;
+  return (cost / (1 - target)).toFixed(2);
 }
 
 interface OrderForm {
@@ -89,7 +90,7 @@ export const OrderEntry: React.FC = () => {
   // When product or UOM changes, seed sell price with the zero-margin rate
   useEffect(() => {
     if (selectedProduct) {
-      setForm((prev) => ({ ...prev, sellPrice: zeroMarginPrice(selectedProduct, prev.uom) }));
+      setForm((prev) => ({ ...prev, sellPrice: targetMarginPrice(selectedProduct, prev.uom) }));
     }
   }, [selectedProduct, form.uom]);
 
