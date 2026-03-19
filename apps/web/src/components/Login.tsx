@@ -89,10 +89,10 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center font-sans">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">MeshMargin</h1>
-        <p className="text-gray-500 text-center mb-8">
+    <div className="min-h-screen bg-zinc-50 flex flex-col justify-center items-center font-sans">
+      <div className="bg-white p-8 rounded-lg shadow-sm border border-zinc-200 w-full max-w-md">
+        <h1 className="text-3xl font-bold text-zinc-900 mb-2 text-center">MeshMargin</h1>
+        <p className="text-zinc-500 text-center mb-8">
           {isRegister ? 'Create an account' : 'Sign in to your account'}
         </p>
 
@@ -104,22 +104,22 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Username</label>
             <input
               type="text"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+              className="w-full px-4 py-3 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-shadow"
               placeholder="e.g. jsmith"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Password</label>
             <input
               type="password"
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+              className="w-full px-4 py-3 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none transition-shadow"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -128,7 +128,7 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            className="w-full bg-zinc-800 hover:bg-zinc-900 text-white font-bold py-3 rounded-md transition-colors shadow-sm disabled:opacity-50"
           >
             {loading ? 'Authenticating...' : isRegister ? 'Create Account' : 'Sign In'}
           </button>
@@ -141,15 +141,15 @@ export const Login: React.FC = () => {
               setIsRegister(!isRegister);
               setError('');
             }}
-            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+            className="text-zinc-700 hover:text-zinc-900 hover:underline transition-colors"
           >
             {isRegister ? 'Already have an account? Sign In' : 'Need an account? Register'}
           </button>
         </div>
 
         {DEMO_MODE && (
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center mb-3">Demo accounts</p>
+          <div className="mt-6 pt-6 border-t border-zinc-200">
+            <p className="text-sm text-zinc-500 text-center mb-3">Demo accounts</p>
             <div className="flex gap-3">
               {DEMO_ACCOUNTS.map((account) => (
                 <button
@@ -157,7 +157,7 @@ export const Login: React.FC = () => {
                   type="button"
                   disabled={loading}
                   onClick={() => handleDemoLogin(account)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
+                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50"
                 >
                   {account.label}
                 </button>
