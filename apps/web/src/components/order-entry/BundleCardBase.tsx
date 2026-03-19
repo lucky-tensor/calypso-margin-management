@@ -10,6 +10,10 @@ function formatNumber(value: number, decimals = 2): string {
   });
 }
 
+function formatCurrency(value: number): string {
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
 export interface BundleCardBaseProps {
   bundle: Bundle;
   /** Unique key to disambiguate price inputs across cards */
@@ -24,7 +28,7 @@ export interface BundleCardBaseProps {
       sellPricePerEach: number;
       customer: string;
     }>,
-  ) => void;
+  ) => Promise<void>;
   creating?: boolean;
   /** Whether this bundle has the lowest costTotal among all shown bundles */
   isBestMargin?: boolean;
@@ -55,6 +59,8 @@ export function BundleCardBase({
     }
     return initial;
   });
+
+  const [showReview, setShowReview] = useState(false);
 
   const handlePriceChange = useCallback((productId: string, value: string) => {
     setItemPrices((prev) => ({ ...prev, [productId]: value }));
@@ -109,14 +115,23 @@ export function BundleCardBase({
     };
   }, [items, itemPrices, totalLinft, totalSqft]);
 
-  const handleCreateOrders = () => {
+  const handleConfirmClick = () => {
+    setShowReview(true);
+  };
+
+  const handleCancelReview = () => {
+    setShowReview(false);
+  };
+
+  const handleConfirmOrders = async () => {
     const orderItems = items.map((item) => ({
       productId: item.product.id,
       quantity: item.quantity,
       sellPricePerEach: parseFloat(itemPrices[item.product.id] ?? '0'),
       customer,
     }));
-    onCreateOrders(orderItems);
+    await onCreateOrders(orderItems);
+    setShowReview(false);
   };
 
   const allPricesValid = items.every((item) => {
@@ -124,7 +139,10 @@ export function BundleCardBase({
     return !isNaN(price) && price > 0;
   });
 
-  const canCreateOrders = allPricesValid && customer.trim().length > 0;
+  const canConfirm = allPricesValid && customer.trim().length > 0;
+
+  // Button label: "Confirm Order" for single item, "Confirm Orders" for multi-item
+  const confirmButtonLabel = items.length === 1 ? 'Confirm Order' : 'Confirm Orders';
 
   // Display overage based on mode
   const overageDisplay =
@@ -163,107 +181,205 @@ export function BundleCardBase({
         </div>
       )}
 
-      {/* Item rows */}
-      {items.map((item) => {
-        const p = item.product.properties;
-        const lengthFeet = p.length_inches / 12;
-        const rollLengthStr = Number.isInteger(lengthFeet)
-          ? `${lengthFeet} ft`
-          : `${lengthFeet.toFixed(1)} ft`;
+      {/* Review step */}
+      {showReview ? (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-zinc-900">Review Order</p>
 
-        return (
-          <div key={item.product.id} className="space-y-2">
-            {/* Product header */}
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
-                <p className="text-xs text-zinc-500">{p.sku}</p>
-                {displayMode === 'sqft' && (
-                  <p className="text-xs text-zinc-400">
-                    {p.width_inches}&quot; &times; {p.length_inches}&quot; rolls ({rollLengthStr})
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0">
-                <label
-                  htmlFor={`price-${bundleKey}-${item.product.id}`}
-                  className="block text-xs text-zinc-500 mb-0.5"
-                >
-                  $/each
-                </label>
-                <input
-                  id={`price-${bundleKey}-${item.product.id}`}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={itemPrices[item.product.id] ?? ''}
-                  onChange={(e) => handlePriceChange(item.product.id, e.target.value)}
-                  placeholder="0.00"
-                  className="w-24 px-2 py-1 text-sm border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none"
-                  aria-label={`Sell price for ${p.name}`}
-                />
-              </div>
-            </div>
-
-            {/* Quantity */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <span className="text-zinc-700">
-                <span className="font-medium">{item.quantity}</span> rolls
-              </span>
-              {displayMode === 'linft' && (
-                <span className="text-zinc-500">
-                  {formatNumber(item.quantity * (p.length_inches / 12), 0)} ft
-                </span>
-              )}
-            </div>
+          {/* Customer */}
+          <div className="text-sm text-zinc-700">
+            <span className="font-medium">Customer:</span> {customer}
           </div>
-        );
-      })}
 
-      {/* Separator if multiple items */}
-      {items.length > 1 && <div className="border-t border-zinc-100" />}
+          {/* Line items */}
+          <div className="space-y-2">
+            {items.map((item) => {
+              const p = item.product.properties;
+              const priceEach = parseFloat(itemPrices[item.product.id] ?? '0');
+              const conversions = convertUnits(item.product, item.quantity, 'each');
+              const linft = conversions.linear_feet;
+              const sqft = conversions.square_feet;
+              const lineTotal = item.quantity * priceEach;
 
-      {/* Combined delivery/overage */}
-      <div className="text-sm text-zinc-500">{overageDisplay}</div>
+              return (
+                <div key={item.product.id} className="bg-zinc-50 rounded-md p-3 text-sm">
+                  <div className="font-medium text-zinc-900">{p.name}</div>
+                  <div className="text-xs text-zinc-500">{p.sku}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-zinc-600">
+                    <span>{item.quantity} units</span>
+                    <span>{formatNumber(linft, 1)} lin ft</span>
+                    <span>{formatNumber(sqft, 0)} sq ft</span>
+                  </div>
+                  <div className="mt-1 flex justify-between text-zinc-700">
+                    <span>{formatCurrency(priceEach)} / each</span>
+                    <span className="font-medium">{formatCurrency(lineTotal)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Customer pricing */}
-      {combinedEconomics && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700">
-          <span>
-            <span className="font-medium">
-              ${combinedEconomics.customerPricePerSqft.toFixed(2)}
-            </span>
-            <span className="text-zinc-500"> / sqft</span>
-          </span>
-          <span>
-            <span className="font-medium">
-              ${combinedEconomics.customerPricePerLinft.toFixed(2)}
-            </span>
-            <span className="text-zinc-500"> / linft</span>
-          </span>
+          {/* Totals */}
+          {combinedEconomics && (
+            <div className="border-t border-zinc-100 pt-2 space-y-1 text-sm">
+              <div className="flex justify-between text-zinc-700">
+                <span>Total Revenue</span>
+                <span className="font-medium">
+                  {formatCurrency(combinedEconomics.totalRevenue)}
+                </span>
+              </div>
+              <div className="flex justify-between text-zinc-700">
+                <span>Total Cost</span>
+                <span className="font-medium">{formatCurrency(combinedEconomics.totalCost)}</span>
+              </div>
+              <MarginBox
+                marginDollars={combinedEconomics.marginDollars}
+                marginPercent={combinedEconomics.marginPercent}
+                marginTarget={combinedEconomics.marginTarget}
+                marginFloor={combinedEconomics.marginFloor}
+                variant="compact"
+              />
+            </div>
+          )}
+
+          {/* Confirm / Cancel */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleConfirmOrders}
+              disabled={creating}
+              className="flex-1 px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creating ? 'Confirming...' : 'Confirm'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelReview}
+              disabled={creating}
+              className="flex-1 px-3 py-1.5 text-xs font-semibold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Item rows */}
+          {items.map((item) => {
+            const p = item.product.properties;
+            const lengthFeet = p.length_inches / 12;
+            const rollLengthStr = Number.isInteger(lengthFeet)
+              ? `${lengthFeet} ft`
+              : `${lengthFeet.toFixed(1)} ft`;
 
-      {/* Combined margin */}
-      {combinedEconomics && (
-        <MarginBox
-          marginDollars={combinedEconomics.marginDollars}
-          marginPercent={combinedEconomics.marginPercent}
-          marginTarget={combinedEconomics.marginTarget}
-          marginFloor={combinedEconomics.marginFloor}
-          variant="compact"
-        />
-      )}
+            return (
+              <div key={item.product.id} className="space-y-2">
+                {/* Product header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
+                    <p className="text-xs text-zinc-500">{p.sku}</p>
+                    {displayMode === 'sqft' && (
+                      <p className="text-xs text-zinc-400">
+                        {p.width_inches}&quot; &times; {p.length_inches}&quot; rolls (
+                        {rollLengthStr})
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0">
+                    <label
+                      htmlFor={`price-${bundleKey}-${item.product.id}`}
+                      className="block text-xs text-zinc-500 mb-0.5"
+                    >
+                      $/each
+                    </label>
+                    <input
+                      id={`price-${bundleKey}-${item.product.id}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={itemPrices[item.product.id] ?? ''}
+                      onChange={(e) => handlePriceChange(item.product.id, e.target.value)}
+                      placeholder="0.00"
+                      className="w-24 px-2 py-1 text-sm border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none"
+                      aria-label={`Sell price for ${p.name}`}
+                    />
+                  </div>
+                </div>
 
-      {/* Create Orders button */}
-      <button
-        type="button"
-        onClick={handleCreateOrders}
-        disabled={!canCreateOrders || creating}
-        className="w-full px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {creating ? 'Creating...' : 'Create Orders'}
-      </button>
+                {/* Quantity */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <span className="text-zinc-700">
+                    <span className="font-medium">{item.quantity}</span> rolls
+                  </span>
+                  {displayMode === 'linft' && (
+                    <span className="text-zinc-500">
+                      {formatNumber(item.quantity * (p.length_inches / 12), 0)} ft
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Separator if multiple items */}
+          {items.length > 1 && <div className="border-t border-zinc-100" />}
+
+          {/* Combined delivery/overage */}
+          <div className="text-sm text-zinc-500">{overageDisplay}</div>
+
+          {/* Full financial detail when prices are entered */}
+          {combinedEconomics && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm text-zinc-700">
+                <span>Revenue</span>
+                <span className="font-medium">
+                  {formatCurrency(combinedEconomics.totalRevenue)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm text-zinc-700">
+                <span>Cost</span>
+                <span className="font-medium">{formatCurrency(combinedEconomics.totalCost)}</span>
+              </div>
+
+              {/* Customer unit prices */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700 pt-1">
+                <span>
+                  <span className="font-medium">
+                    ${combinedEconomics.customerPricePerSqft.toFixed(2)}
+                  </span>
+                  <span className="text-zinc-500"> / sqft</span>
+                </span>
+                <span>
+                  <span className="font-medium">
+                    ${combinedEconomics.customerPricePerLinft.toFixed(2)}
+                  </span>
+                  <span className="text-zinc-500"> / linft</span>
+                </span>
+              </div>
+
+              {/* Combined margin */}
+              <MarginBox
+                marginDollars={combinedEconomics.marginDollars}
+                marginPercent={combinedEconomics.marginPercent}
+                marginTarget={combinedEconomics.marginTarget}
+                marginFloor={combinedEconomics.marginFloor}
+                variant="compact"
+              />
+            </div>
+          )}
+
+          {/* Confirm Order(s) button */}
+          <button
+            type="button"
+            onClick={handleConfirmClick}
+            disabled={!canConfirm || creating}
+            className="w-full px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating ? 'Confirming...' : confirmButtonLabel}
+          </button>
+        </>
+      )}
     </div>
   );
 }
