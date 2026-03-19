@@ -369,6 +369,79 @@ describe('findBundlesByWidth', () => {
     );
     expect(abBundle!.overage).toBeLessThan(singleProductBestOverage);
   });
+
+  // ─── Stress tests ──────────────────────────────────────────────────────────
+
+  it('maxIterations backstop completes within vitest timeout with 50+ products', () => {
+    const products = Array.from({ length: 55 }, (_, i) =>
+      makeProduct(`stress-${i}`, {
+        width_inches: 48,
+        length_inches: 60 + i * 5,
+        cost_per_each: 10 + i,
+      }),
+    );
+
+    const start = Date.now();
+    const result = findBundlesByWidth(products, 48, 10000, { maxIterations: 100 });
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(5000);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('totalLengthInches=0 does not cause infinite loop', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 0);
+
+    // ceil(0/10) = 0 eaches, should return bundles with 0 quantity
+    expect(result).toBeDefined();
+  });
+
+  it('products with very small dimensions (1 inch) work correctly', () => {
+    const products = [
+      makeProduct('tiny', { width_inches: 1, length_inches: 1, cost_per_each: 0.5 }),
+    ];
+
+    const result = findBundlesByWidth(products, 1, 120); // 10 linft
+    expect(result.length).toBeGreaterThan(0);
+    // 1" length = 1/12 linft per each → need ceil(10 / (1/12)) = ceil(120) = 120 eaches
+    expect(result[0].items[0].quantity).toBe(120);
+  });
+
+  it('products with very large dimensions (100,000 inches) work correctly', () => {
+    const products = [
+      makeProduct('huge', { width_inches: 48, length_inches: 100000, cost_per_each: 5000 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 100000);
+    expect(result.length).toBeGreaterThan(0);
+    // 100000" = 8333.33 linft per each → need ceil(8333.33/8333.33) = 1
+    expect(result[0].items[0].quantity).toBe(1);
+  });
+
+  it('2 products (10ft and 14ft rolls), target=200ft yields multi-product bundle with 0 overage', () => {
+    // A: 120" (10ft), B: 168" (14ft), target=2400" (200ft)
+    // A alone: ceil(200/10)=20 → 200ft → 0 overage
+    // B alone: ceil(200/14)=15 → 210ft → 10ft overage
+    // A+B: q_A=20(200ft) q_B=0 → 200ft → 0; but also q_A=6(60)+q_B=10(140)=200 → 0
+    const products = [
+      makeProduct('10ft', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('14ft', { width_inches: 48, length_inches: 168, cost_per_each: 25 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400, { maxBundles: 100 });
+
+    // At least one bundle (single A) should have 0 overage
+    const zeroOverage = result.filter((b) => Math.abs(b.overage) < 0.001);
+    expect(zeroOverage.length).toBeGreaterThan(0);
+
+    // The multi-product combination should also exist with 0 overage
+    const multiZero = result.filter((b) => b.items.length === 2 && Math.abs(b.overage) < 0.001);
+    expect(multiZero.length).toBeGreaterThan(0);
+  });
 });
 
 // ─── findBundlesBySqft ────────────────────────────────────────────────────────
@@ -702,5 +775,87 @@ describe('findBundlesBySqft', () => {
       ...resultNew.filter((b) => b.items.length === 1).map((b) => b.overage),
     );
     expect(xyBundle!.overage).toBeLessThan(singleProductBestOverage);
+  });
+
+  // ─── Stress tests ──────────────────────────────────────────────────────────
+
+  it('maxIterations backstop completes within vitest timeout with 50+ products', () => {
+    const products = Array.from({ length: 55 }, (_, i) =>
+      makeProduct(`sqft-stress-${i}`, {
+        width_inches: 36 + (i % 10) * 4,
+        length_inches: 60 + i * 5,
+        cost_per_each: 10 + i,
+      }),
+    );
+
+    const start = Date.now();
+    const result = findBundlesBySqft(products, 10000, { maxIterations: 100 });
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(5000);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('maxDepth=2 with 50 products — no bundle has > 2 distinct product types', () => {
+    const products = Array.from({ length: 50 }, (_, i) =>
+      makeProduct(`depth-${i}`, {
+        width_inches: 36 + (i % 8) * 6,
+        length_inches: 60 + i * 3,
+        cost_per_each: 10 + i * 0.5,
+      }),
+    );
+
+    const result = findBundlesBySqft(products, 5000, { maxDepth: 2, maxBundles: 200 });
+
+    for (const bundle of result) {
+      expect(bundle.items.length).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('totalSqft=0 does not cause infinite loop', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const result = findBundlesBySqft(products, 0);
+    expect(result).toBeDefined();
+  });
+
+  it('totalSqft=0.001 does not cause infinite loop', () => {
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 32 }),
+    ];
+
+    const result = findBundlesBySqft(products, 0.001);
+    expect(result).toBeDefined();
+    // ceil(0.001/40) = 1 → 1 unit → overage = 40 - 0.001 ≈ 39.999
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('products with extreme dimensions (1"x1") work correctly', () => {
+    const products = [
+      makeProduct('tiny', { width_inches: 1, length_inches: 1, cost_per_each: 0.01 }),
+    ];
+
+    const result = findBundlesBySqft(products, 10);
+    expect(result.length).toBeGreaterThan(0);
+    // sqftPerEach = (1*1)/144 = 1/144
+    // ceil(10/(1/144)) = ceil(1440) = 1440
+    expect(result[0].items[0].quantity).toBe(1440);
+  });
+
+  it('products with very large dimensions (100,000 inches) work correctly', () => {
+    const products = [
+      makeProduct('huge', {
+        width_inches: 100000,
+        length_inches: 100000,
+        cost_per_each: 1000000,
+      }),
+    ];
+
+    const result = findBundlesBySqft(products, 100);
+    expect(result.length).toBeGreaterThan(0);
+    // sqftPerEach = (100000*100000)/144 = massive → need ceil(100/massive) = 1
+    expect(result[0].items[0].quantity).toBe(1);
   });
 });
