@@ -71,11 +71,18 @@ const STATUS_FILTER_TABS: { value: OrderStatus | 'all'; label: string }[] = [
 
 interface ConfirmDialogProps {
   message: string;
+  actionType: 'confirm' | 'cancel';
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
+function ConfirmDialog({ message, actionType, onConfirm, onCancel }: ConfirmDialogProps) {
+  const actionLabel = actionType === 'confirm' ? 'Confirm' : 'Cancel order';
+  const actionClass =
+    actionType === 'confirm'
+      ? 'bg-zinc-800 hover:bg-zinc-900 text-white'
+      : 'bg-red-600 hover:bg-red-700 text-white';
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
@@ -89,9 +96,9 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${actionClass}`}
           >
-            Confirm cancellation
+            {actionLabel}
           </button>
         </div>
       </div>
@@ -230,7 +237,7 @@ export const OrderHistory: React.FC = () => {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-800"></div>
         </div>
       )}
 
@@ -334,7 +341,7 @@ export const OrderHistory: React.FC = () => {
                         {p.status === 'draft' && (
                           <button
                             onClick={() => handleConfirmClick(order.id)}
-                            className="px-2.5 py-1 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors"
+                            className="px-2.5 py-1 text-xs font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
                           >
                             Confirm
                           </button>
@@ -364,6 +371,7 @@ export const OrderHistory: React.FC = () => {
       {pendingAction && (
         <ConfirmDialog
           message={dialogMessage}
+          actionType={pendingAction.action}
           onConfirm={handleDialogConfirm}
           onCancel={handleDialogCancel}
         />
