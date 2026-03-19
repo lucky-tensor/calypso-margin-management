@@ -95,7 +95,8 @@ interface BundleCardProps {
 }
 
 function BundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: BundleCardProps) {
-  const { product, quantity, totalLinft, totalSqft, overage } = bundle;
+  const { totalLinft, totalSqft, overage } = bundle;
+  const { product, quantity } = bundle.items[0];
   const p = product.properties;
 
   const totalRevenue = sellPricePerUnit * quantity;
@@ -194,7 +195,8 @@ interface ByAreaBundleCardProps {
 }
 
 function ByAreaBundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: ByAreaBundleCardProps) {
-  const { product, quantity, totalLinft, totalSqft, overage } = bundle;
+  const { totalLinft, totalSqft, overage } = bundle;
+  const { product, quantity } = bundle.items[0];
   const p = product.properties;
 
   const totalRevenue = sellPricePerUnit * quantity;
@@ -319,19 +321,9 @@ function ByAreaPanel({ products, onSelectForQuote }: ByAreaPanelProps) {
     }
     const copy = [...rawBundles];
     if (sortKey === 'price-sqft') {
-      copy.sort((a, b) => {
-        const aPricePerSqft = a.totalSqft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalSqft;
-        const bPricePerSqft = b.totalSqft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalSqft;
-        return aPricePerSqft - bPricePerSqft;
-      });
+      copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
     } else {
-      copy.sort((a, b) => {
-        const aPricePerLinft =
-          a.totalLinft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalLinft;
-        const bPricePerLinft =
-          b.totalLinft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalLinft;
-        return aPricePerLinft - bPricePerLinft;
-      });
+      copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
     }
     return copy;
   }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
@@ -470,19 +462,9 @@ function ByWidthPanel({ products, onSelectForQuote }: ByWidthPanelProps) {
     }
     const copy = [...rawBundles];
     if (sortKey === 'price-sqft') {
-      copy.sort((a, b) => {
-        const aPricePerSqft = a.totalSqft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalSqft;
-        const bPricePerSqft = b.totalSqft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalSqft;
-        return aPricePerSqft - bPricePerSqft;
-      });
+      copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
     } else {
-      copy.sort((a, b) => {
-        const aPricePerLinft =
-          a.totalLinft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalLinft;
-        const bPricePerLinft =
-          b.totalLinft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalLinft;
-        return aPricePerLinft - bPricePerLinft;
-      });
+      copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
     }
     return copy;
   }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
