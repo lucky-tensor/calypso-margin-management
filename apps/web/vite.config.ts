@@ -27,6 +27,7 @@ export default defineConfig({
     exclude: ['tests/component/**'],
   },
   server: {
+    allowedHosts: true,
     proxy: createProxy(),
   },
   css: {
