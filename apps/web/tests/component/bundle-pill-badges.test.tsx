@@ -29,7 +29,12 @@ const productA = makeProduct('prod-a', 'Alpha Mesh', 'SKU-A', 32.0);
 const productB = makeProduct('prod-b', 'Beta Mesh', 'SKU-B', 20.0);
 const productC = makeProduct('prod-c', 'Gamma Mesh', 'SKU-C', 45.0);
 
-const makeBundle = (product: Product, quantity: number, overage: number, costTotal: number): Bundle => ({
+const makeBundle = (
+  product: Product,
+  quantity: number,
+  overage: number,
+  costTotal: number,
+): Bundle => ({
   items: [{ product, quantity }],
   totalSqft: quantity * 40,
   totalLinft: quantity * 10,
