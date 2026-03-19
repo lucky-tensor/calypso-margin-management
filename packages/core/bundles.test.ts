@@ -293,6 +293,82 @@ describe('findBundlesByWidth', () => {
     const [bundle] = findBundlesByWidth(products, 48, 2400);
     expect(bundle.overageUnit).toBe('linft');
   });
+
+  // ─── Uniqueness invariant tests ───────────────────────────────────────────
+
+  it('returns exactly one bundle per unique product-type set (no duplicates)', () => {
+    // 3 products — expect at most C(3,1)+C(3,2)+C(3,3) = 7 distinct sets
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 48, length_inches: 100, cost_per_each: 18 }),
+      makeProduct('C', { width_inches: 48, length_inches: 80, cost_per_each: 15 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400, { maxBundles: 100 });
+
+    // Collect all product-set keys
+    const keys = result.map((b) =>
+      b.items
+        .map((i) => i.product.id)
+        .sort()
+        .join('|'),
+    );
+    const uniqueKeys = new Set(keys);
+
+    // Every key should appear exactly once
+    expect(keys.length).toBe(uniqueKeys.size);
+  });
+
+  it('sorted by overage asc, then costTotal asc', () => {
+    // p1: 48"x120" (10ft rolls), cost=10 — ceil(2460/120)=21 rolls → 210ft → 5ft overage
+    // p2: 48"x168" (14ft rolls), cost=200 — ceil(2460/168)=15 rolls → 210ft → 5ft overage
+    // Both have same 5ft overage; cheaper (p1) should come first.
+    const products = [
+      makeProduct('p1', { width_inches: 48, length_inches: 120, cost_per_each: 10 }),
+      makeProduct('p2', { width_inches: 48, length_inches: 168, cost_per_each: 200 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2460, { maxBundles: 100 });
+
+    for (let i = 0; i < result.length - 1; i++) {
+      const a = result[i];
+      const b = result[i + 1];
+      if (a.overage === b.overage) {
+        expect(a.costTotal).toBeLessThanOrEqual(b.costTotal);
+      } else {
+        expect(a.overage).toBeLessThan(b.overage);
+      }
+    }
+  });
+
+  it('2-product bundle beats single-product when it reduces overage', () => {
+    // A: 48"x120" (10ft), cost=20 — target 205 linft (2460 inches)
+    //   A alone: ceil(2460/120)=21 → 210ft → 5ft overage
+    // B: 48"x168" (14ft), cost=25
+    //   B alone: ceil(2460/168)=15 → 210ft → 5ft overage
+    // Best A+B mix: iterate q_A from 0..21, derive q_B
+    //   q_A=1 (10ft) → remaining=195ft → q_B=ceil(195/14)=14 (196ft) → total=206ft → 1ft overage
+    //   This is better than 5ft overage from single-product options
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 48, length_inches: 168, cost_per_each: 25 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2460, { maxBundles: 100 });
+
+    const abBundle = result.find(
+      (b) =>
+        b.items.length === 2 &&
+        b.items.some((i) => i.product.id === 'A') &&
+        b.items.some((i) => i.product.id === 'B'),
+    );
+    expect(abBundle).toBeDefined();
+
+    const singleProductBestOverage = Math.min(
+      ...result.filter((b) => b.items.length === 1).map((b) => b.overage),
+    );
+    expect(abBundle!.overage).toBeLessThan(singleProductBestOverage);
+  });
 });
 
 // ─── findBundlesBySqft ────────────────────────────────────────────────────────
@@ -520,5 +596,111 @@ describe('findBundlesBySqft', () => {
 
     const [bundle] = findBundlesBySqft(products, 400);
     expect(bundle.overageUnit).toBe('sqft');
+  });
+
+  // ─── Uniqueness invariant tests ───────────────────────────────────────────
+
+  it('returns exactly one bundle per unique product-type set (no duplicates)', () => {
+    // 3 products — expect at most C(3,1)+C(3,2)+C(3,3) = 7 distinct sets
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 60, length_inches: 100, cost_per_each: 18 }),
+      makeProduct('C', { width_inches: 36, length_inches: 80, cost_per_each: 15 }),
+    ];
+
+    const result = findBundlesBySqft(products, 500, { maxBundles: 100 });
+
+    // Collect all product-set keys
+    const keys = result.map((b) =>
+      b.items
+        .map((i) => i.product.id)
+        .sort()
+        .join('|'),
+    );
+    const uniqueKeys = new Set(keys);
+
+    // Every key should appear exactly once
+    expect(keys.length).toBe(uniqueKeys.size);
+  });
+
+  it('sorted by overage asc, then costTotal asc', () => {
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 60, length_inches: 100, cost_per_each: 18 }),
+      makeProduct('C', { width_inches: 36, length_inches: 80, cost_per_each: 15 }),
+    ];
+
+    const result = findBundlesBySqft(products, 500, { maxBundles: 100 });
+
+    for (let i = 0; i < result.length - 1; i++) {
+      const a = result[i];
+      const b = result[i + 1];
+      if (a.overage === b.overage) {
+        expect(a.costTotal).toBeLessThanOrEqual(b.costTotal);
+      } else {
+        expect(a.overage).toBeLessThan(b.overage);
+      }
+    }
+  });
+
+  it('2-product bundle beats single-product when it reduces overage', () => {
+    // A: 48"x120" (sqftPerEach=40), cost=20
+    //   A alone: ceil(503/40)=13 → 520sqft → 17 overage
+    // B: 60"x100" (sqftPerEach=41.667), cost=18
+    //   B alone: ceil(503/41.667)=13 → 541.67sqft → 38.67 overage
+    // Target: 503 sqft
+    // A+B: try q_A=0..13, derive q_B to cover remainder
+    //   q_A=12 (480sqft) + q_B=ceil(23/41.667)=1 (41.667sqft) = 521.67sqft → 18.67 overage
+    //   q_A=13 (520sqft) → remaining<=0 → q_B=0 → total=520sqft → 17 overage (same as A alone)
+    // Better scenario: use products that create obvious improvement
+    // A: 48"x120" (sqft=40), B: 48"x60" (sqft=20), target=100
+    //   A alone: ceil(100/40)=3 → 120sqft → 20 overage
+    //   B alone: ceil(100/20)=5 → 100sqft → 0 overage (already optimal)
+    // Use target=110:
+    //   A alone: ceil(110/40)=3 → 120sqft → 10 overage
+    //   B alone: ceil(110/20)=6 → 120sqft → 10 overage
+    //   A+B: q_A=1(40) + q_B=ceil(70/20)=4(80) = 120sqft → 10 overage (same)
+    //        q_A=2(80) + q_B=ceil(30/20)=2(40) = 120sqft → 10 overage (same)
+    //   Hmm. Use target=105:
+    //   A alone: ceil(105/40)=3 → 120 → 15 overage
+    //   B alone: ceil(105/20)=6 → 120 → 15 overage
+    //   A+B: q_A=1(40)+q_B=ceil(65/20)=4(80)=120 → 15; q_A=2(80)+q_B=ceil(25/20)=2(40)=120 → 15
+    //   All the same due to the numbers. Use C: 48"x30" (sqft=10), target=105:
+    //   C alone: ceil(105/10)=11 → 110 → 5 overage (better!)
+    //   A+C: q_A=1(40)+q_C=ceil(65/10)=7(70)=110 → 5 overage (same as C alone)
+    //   A+B: q_A=2(80)+q_B=ceil(25/20)=2(40)=120 → 15 overage
+    //   B+C: q_B=0+q_C=ceil(105/10)=11(110)=110 → 5 overage
+    //   A+B+C: q_A=1(40)+q_B=2(40)+q_C=ceil(25/10)=3(30)=110 → 5 overage
+    // Best: C alone or combos with C reach 5 overage. A+C should appear.
+
+    // Let's use: A=sqft 7, B=sqft 11, target=50
+    //   A alone: ceil(50/7)=8 → 56 → 6 overage
+    //   B alone: ceil(50/11)=5 → 55 → 5 overage
+    //   A+B: iterate q_A 0..8
+    //     q_A=6(42)+q_B=ceil(8/11)=1(11)=53 → 3 overage  ← better!
+    //     q_A=7(49)+q_B=ceil(1/11)=1(11)=60 → 10 overage
+    //     q_A=5(35)+q_B=ceil(15/11)=2(22)=57 → 7 overage
+    //     q_A=4(28)+q_B=ceil(22/11)=2(22)=50 → 0 overage ← best!
+    // A: 48"x(7*144/48)=21" → width=48, length=21 (sqft = 48*21/144=7)
+    // B: 48"x(11*144/48)=33" → width=48, length=33 (sqft = 48*33/144=11)
+    const productsNew = [
+      makeProduct('X', { width_inches: 48, length_inches: 21, cost_per_each: 10 }),
+      makeProduct('Y', { width_inches: 48, length_inches: 33, cost_per_each: 15 }),
+    ];
+
+    const resultNew = findBundlesBySqft(productsNew, 50, { maxBundles: 100 });
+
+    const xyBundle = resultNew.find(
+      (b) =>
+        b.items.length === 2 &&
+        b.items.some((i) => i.product.id === 'X') &&
+        b.items.some((i) => i.product.id === 'Y'),
+    );
+    expect(xyBundle).toBeDefined();
+
+    const singleProductBestOverage = Math.min(
+      ...resultNew.filter((b) => b.items.length === 1).map((b) => b.overage),
+    );
+    expect(xyBundle!.overage).toBeLessThan(singleProductBestOverage);
   });
 });

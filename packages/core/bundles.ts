@@ -67,15 +67,192 @@ function buildBundleFromItems(
   };
 }
 
-/**
- * Deduplicate bundles by their items signature.
- * Two bundles are considered the same if they have the same products and quantities (order-independent).
- */
-function bundleKey(items: BundleItem[]): string {
-  return items
-    .map((i) => `${i.product.id}:${i.quantity}`)
+/** Canonical key for a set of products (order-independent, quantity-independent). */
+function productSetKey(products: Product[]): string {
+  return products
+    .map((p) => p.id)
     .sort()
     .join('|');
+}
+
+/** Returns true if bundle a is strictly better than bundle b. */
+function isBetter(a: Bundle, b: Bundle): boolean {
+  if (a.overage < b.overage) return true;
+  if (a.overage === b.overage && a.costTotal < b.costTotal) return true;
+  return false;
+}
+
+/**
+ * Get the unit delivered per "each" for the given targetUnit.
+ * targetUnit 'linft' → length_inches / 12
+ * targetUnit 'sqft'  → (width_inches * length_inches) / 144
+ */
+function unitDelivered(product: Product, targetUnit: 'linft' | 'sqft'): number {
+  const { width_inches, length_inches } = product.properties;
+  if (targetUnit === 'linft') {
+    return length_inches / 12;
+  }
+  return (width_inches * length_inches) / 144;
+}
+
+/**
+ * Compute the overage for a given set of items against the target.
+ */
+function computeOverage(items: BundleItem[], target: number, targetUnit: 'linft' | 'sqft'): number {
+  let total = 0;
+  for (const { product, quantity } of items) {
+    total += quantity * unitDelivered(product, targetUnit);
+  }
+  return total - target;
+}
+
+/**
+ * Build a Bundle from products + quantities, computing overage for the given target.
+ */
+function buildBundle(
+  products: Product[],
+  quantities: number[],
+  target: number,
+  targetUnit: 'linft' | 'sqft',
+): Bundle {
+  const items: BundleItem[] = products.map((p, i) => ({ product: p, quantity: quantities[i] }));
+  const overage = computeOverage(items, target, targetUnit);
+  return buildBundleFromItems(items, overage, targetUnit);
+}
+
+/**
+ * Find the best integer quantities for a set of products to meet the target
+ * with minimum overage (tiebroken by minimum costTotal).
+ *
+ * N=1: qty = ceil(target / unit(P))
+ * N=2: iterate q_A from 0..ceil(target/unit(A)), derive q_B to cover remainder
+ * N≥3: fix all but last at their single-product-minimum quantities, optimize last
+ */
+function findBestQuantities(
+  products: Product[],
+  target: number,
+  targetUnit: 'linft' | 'sqft',
+): Bundle | null {
+  const n = products.length;
+  if (n === 0) return null;
+
+  const units = products.map((p) => unitDelivered(p, targetUnit));
+
+  // Guard: skip products with zero unit delivered
+  if (units.some((u) => u <= 0)) return null;
+
+  if (n === 1) {
+    const qty = Math.ceil(target / units[0]);
+    return buildBundle(products, [qty], target, targetUnit);
+  }
+
+  if (n === 2) {
+    const unitA = units[0];
+    const unitB = units[1];
+    const maxQA = Math.ceil(target / unitA);
+
+    let bestBundle: Bundle | null = null;
+
+    for (let qA = 0; qA <= maxQA; qA++) {
+      const remaining = target - qA * unitA;
+      const qB = remaining <= 0 ? 0 : Math.ceil(remaining / unitB);
+
+      // Skip if both are 0 (no products in bundle)
+      if (qA === 0 && qB === 0) continue;
+
+      const candidate = buildBundle(products, [qA, qB], target, targetUnit);
+      if (bestBundle === null || isBetter(candidate, bestBundle)) {
+        bestBundle = candidate;
+      }
+    }
+
+    return bestBundle;
+  }
+
+  // N≥3: fix all but last at their single-product minimums, optimize last
+  const fixedQtys = products.slice(0, n - 1).map((_, i) => Math.ceil(target / units[i]));
+  const lastUnit = units[n - 1];
+
+  // Compute how much the fixed products cover
+  let fixedTotal = 0;
+  for (let i = 0; i < n - 1; i++) {
+    fixedTotal += fixedQtys[i] * units[i];
+  }
+
+  // Remaining gap for last product (may already be covered or over)
+  const remaining = target - fixedTotal;
+  const qLast = remaining <= 0 ? 0 : Math.ceil(remaining / lastUnit);
+
+  const allQtys = [...fixedQtys, qLast];
+  return buildBundle(products, allQtys, target, targetUnit);
+}
+
+/**
+ * Core bundle-finding algorithm.
+ *
+ * Maintains exactly one bundle per unique product-type set.
+ * Expands iteratively by adding one new product type per round.
+ * Sorts by overage asc, then costTotal asc.
+ */
+function findBundles(
+  eligible: Product[],
+  target: number,
+  targetUnit: 'linft' | 'sqft',
+  maxDepth: number,
+  maxBundles: number,
+  maxIterations: number,
+): Bundle[] {
+  // Map from sortedProductIds key → best bundle for that product-type set
+  const bundles = new Map<string, Bundle>();
+
+  // Round 0: single-product bundles
+  for (const product of eligible) {
+    const unit = unitDelivered(product, targetUnit);
+    if (unit <= 0) continue;
+    const qty = Math.ceil(target / unit);
+    const bundle = buildBundle([product], [qty], target, targetUnit);
+    bundles.set(productSetKey([product]), bundle);
+  }
+
+  // Rounds 1..maxDepth-1: expand by adding one product type per round
+  let iterationCount = 0;
+  let hitLimit = false;
+
+  for (let round = 1; round <= maxDepth - 1 && !hitLimit; round++) {
+    const prevBundles = Array.from(bundles.values());
+    let anyImprovement = false;
+
+    outer: for (const existingBundle of prevBundles) {
+      const existingProducts = existingBundle.items.map((i) => i.product);
+      const existingIds = new Set(existingProducts.map((p) => p.id));
+
+      for (const product of eligible) {
+        if (existingIds.has(product.id)) continue;
+
+        if (iterationCount++ >= maxIterations) {
+          hitLimit = true;
+          break outer;
+        }
+
+        const newProducts = [...existingProducts, product];
+        const bestBundle = findBestQuantities(newProducts, target, targetUnit);
+        if (bestBundle === null) continue;
+
+        const key = productSetKey(newProducts);
+        const existing = bundles.get(key);
+        if (!existing || isBetter(bestBundle, existing)) {
+          bundles.set(key, bestBundle);
+          anyImprovement = true;
+        }
+      }
+    }
+
+    if (!anyImprovement) break;
+  }
+
+  return Array.from(bundles.values())
+    .sort((a, b) => a.overage - b.overage || a.costTotal - b.costTotal)
+    .slice(0, maxBundles);
 }
 
 /**
@@ -83,7 +260,7 @@ function bundleKey(items: BundleItem[]): string {
  *
  * Filters products by exact width match, then generates single-product and
  * multi-product combinations to cover the requested total length.
- * Returns bundles sorted by costTotal ascending.
+ * Returns bundles sorted by overage asc, then costTotal asc.
  */
 export function findBundlesByWidth(
   products: Product[],
@@ -102,132 +279,14 @@ export function findBundlesByWidth(
 
   const targetLinft = totalLengthInches / 12;
 
-  const seen = new Set<string>();
-  const candidates: Bundle[] = [];
-  let iterations = 0;
-
-  function addBundle(items: BundleItem[], overageLinft: number): void {
-    const key = bundleKey(items);
-    if (!seen.has(key)) {
-      seen.add(key);
-      candidates.push(buildBundleFromItems(items, overageLinft, 'linft'));
-    }
-  }
-
-  // Single-product bundles
-  for (const product of eligible) {
-    const { length_inches } = product.properties;
-    const linftPerEach = length_inches / 12;
-    const quantity = Math.ceil(totalLengthInches / length_inches);
-    const totalLinft = quantity * linftPerEach;
-    const overage = totalLinft - targetLinft;
-    addBundle([{ product, quantity }], overage);
-  }
-
-  if (eligible.length < 2 || maxDepth < 2) {
-    candidates.sort((a, b) => a.costTotal - b.costTotal);
-    return candidates.slice(0, maxBundles);
-  }
-
-  // Multi-product combinations — iterative DFS up to maxDepth
-  // We enumerate combinations of products (with repetition for quantity)
-  // by building up item lists recursively.
-  // Strategy: for each subset of distinct products (size 2..maxDepth),
-  // find the optimal quantities by fixing counts of all but the last product
-  // and computing the last product's count to cover the remaining length.
-
-  function searchCombinations(
-    productSubset: Product[],
-    depth: number,
-    currentItems: BundleItem[],
-    remainingLinft: number,
-  ): void {
-    if (iterations >= maxIterations) return;
-
-    if (depth === productSubset.length - 1) {
-      // Last product: compute quantity to cover remaining
-      const lastProduct = productSubset[depth];
-      const linftPerEach = lastProduct.properties.length_inches / 12;
-      if (linftPerEach <= 0) return;
-
-      iterations++;
-
-      if (remainingLinft <= 0) {
-        // Already covered; add 0 of the last product (omit it)
-        // But we need at least 1 of the last to justify including it
-        return;
-      }
-
-      const qty = Math.ceil(remainingLinft / linftPerEach);
-      if (qty <= 0) return;
-
-      const totalLinft =
-        currentItems.reduce(
-          (sum, i) => sum + i.quantity * (i.product.properties.length_inches / 12),
-          0,
-        ) +
-        qty * linftPerEach;
-      const overage = totalLinft - targetLinft;
-
-      addBundle([...currentItems, { product: lastProduct, quantity: qty }], overage);
-      return;
-    }
-
-    // For earlier products, try quantities from 0 up to ceil(remainingLinft / linftPerEach)
-    const product = productSubset[depth];
-    const linftPerEach = product.properties.length_inches / 12;
-    if (linftPerEach <= 0) return;
-
-    const maxQty = Math.ceil(remainingLinft / linftPerEach);
-
-    for (let qty = 1; qty <= maxQty; qty++) {
-      if (iterations >= maxIterations) return;
-      const newRemainingLinft = remainingLinft - qty * linftPerEach;
-      searchCombinations(
-        productSubset,
-        depth + 1,
-        [...currentItems, { product, quantity: qty }],
-        newRemainingLinft,
-      );
-    }
-  }
-
-  // Generate subsets of eligible products of size 2..maxDepth
-  function generateSubsets(arr: Product[], minSize: number, maxSize: number): Product[][] {
-    const result: Product[][] = [];
-
-    function helper(start: number, current: Product[]): void {
-      if (current.length >= minSize) {
-        result.push([...current]);
-      }
-      if (current.length >= maxSize) return;
-      for (let i = start; i < arr.length; i++) {
-        current.push(arr[i]);
-        helper(i + 1, current);
-        current.pop();
-      }
-    }
-
-    helper(0, []);
-    return result;
-  }
-
-  const subsets = generateSubsets(eligible, 2, maxDepth);
-
-  for (const subset of subsets) {
-    if (iterations >= maxIterations) break;
-    searchCombinations(subset, 0, [], targetLinft);
-  }
-
-  candidates.sort((a, b) => a.costTotal - b.costTotal);
-  return candidates.slice(0, maxBundles);
+  return findBundles(eligible, targetLinft, 'linft', maxDepth, maxBundles, maxIterations);
 }
 
 /**
  * Find bundle options to meet or exceed a requested square footage.
  *
  * All products are eligible regardless of width. Generates single-product
- * and multi-product combinations. Returns bundles sorted by costTotal ascending.
+ * and multi-product combinations. Returns bundles sorted by overage asc, then costTotal asc.
  */
 export function findBundlesBySqft(
   products: Product[],
@@ -241,114 +300,5 @@ export function findBundlesBySqft(
 
   const eligible = products.slice(0, maxProducts);
 
-  const seen = new Set<string>();
-  const candidates: Bundle[] = [];
-  let iterations = 0;
-
-  function addBundle(items: BundleItem[], overageSqft: number): void {
-    const key = bundleKey(items);
-    if (!seen.has(key)) {
-      seen.add(key);
-      candidates.push(buildBundleFromItems(items, overageSqft, 'sqft'));
-    }
-  }
-
-  // Single-product bundles
-  for (const product of eligible) {
-    const { width_inches, length_inches } = product.properties;
-    const sqftPerEach = (width_inches * length_inches) / 144;
-    if (sqftPerEach <= 0) continue;
-    const quantity = Math.ceil(totalSqft / sqftPerEach);
-    const bundleSqft = quantity * sqftPerEach;
-    const overage = bundleSqft - totalSqft;
-    addBundle([{ product, quantity }], overage);
-  }
-
-  if (eligible.length < 2 || maxDepth < 2) {
-    candidates.sort((a, b) => a.costTotal - b.costTotal);
-    return candidates.slice(0, maxBundles);
-  }
-
-  function searchCombinations(
-    productSubset: Product[],
-    depth: number,
-    currentItems: BundleItem[],
-    remainingSqft: number,
-  ): void {
-    if (iterations >= maxIterations) return;
-
-    if (depth === productSubset.length - 1) {
-      const lastProduct = productSubset[depth];
-      const { width_inches, length_inches } = lastProduct.properties;
-      const sqftPerEach = (width_inches * length_inches) / 144;
-      if (sqftPerEach <= 0) return;
-
-      iterations++;
-
-      if (remainingSqft <= 0) {
-        return;
-      }
-
-      const qty = Math.ceil(remainingSqft / sqftPerEach);
-      if (qty <= 0) return;
-
-      const totalBundleSqft =
-        currentItems.reduce((sum, i) => {
-          const { width_inches: w, length_inches: l } = i.product.properties;
-          return sum + i.quantity * ((w * l) / 144);
-        }, 0) +
-        qty * sqftPerEach;
-      const overage = totalBundleSqft - totalSqft;
-
-      addBundle([...currentItems, { product: lastProduct, quantity: qty }], overage);
-      return;
-    }
-
-    const product = productSubset[depth];
-    const { width_inches, length_inches } = product.properties;
-    const sqftPerEach = (width_inches * length_inches) / 144;
-    if (sqftPerEach <= 0) return;
-
-    const maxQty = Math.ceil(remainingSqft / sqftPerEach);
-
-    for (let qty = 1; qty <= maxQty; qty++) {
-      if (iterations >= maxIterations) return;
-      const newRemaining = remainingSqft - qty * sqftPerEach;
-      searchCombinations(
-        productSubset,
-        depth + 1,
-        [...currentItems, { product, quantity: qty }],
-        newRemaining,
-      );
-    }
-  }
-
-  function generateSubsets(arr: Product[], minSize: number, maxSize: number): Product[][] {
-    const result: Product[][] = [];
-
-    function helper(start: number, current: Product[]): void {
-      if (current.length >= minSize) {
-        result.push([...current]);
-      }
-      if (current.length >= maxSize) return;
-      for (let i = start; i < arr.length; i++) {
-        current.push(arr[i]);
-        helper(i + 1, current);
-        current.pop();
-      }
-    }
-
-    helper(0, []);
-    return result;
-  }
-
-  const subsets = generateSubsets(eligible, 2, maxDepth);
-
-  for (const subset of subsets) {
-    if (iterations >= maxIterations) break;
-    searchCombinations(subset, 0, [], totalSqft);
-  }
-
-  candidates.sort((a, b) => a.costTotal - b.costTotal);
-  return candidates.slice(0, maxBundles);
+  return findBundles(eligible, totalSqft, 'sqft', maxDepth, maxBundles, maxIterations);
 }
