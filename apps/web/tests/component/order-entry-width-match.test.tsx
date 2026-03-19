@@ -96,9 +96,9 @@ describe('OrderEntry — By Width mode', () => {
     await screen.getByLabelText('Width (inches)').fill('48');
     await screen.getByLabelText('Total Length (feet)').fill('200');
 
-    // Both 48" products should appear
-    await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
-    await expect.element(screen.getByText('2x4 Welded Wire Mesh')).toBeVisible();
+    // Both 48" products should appear (use first() — product names also appear in multi-product combo cards)
+    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
+    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
 
     // The 36" product must NOT appear
     await expect.element(screen.getByText('Narrow Mesh 36in')).not.toBeInTheDocument();
@@ -238,8 +238,8 @@ describe('OrderEntry — By Width mode', () => {
     await screen.getByRole('button', { name: /Price\/sqft/ }).click();
 
     // Both 48" bundles are visible
-    await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
-    await expect.element(screen.getByText('2x4 Welded Wire Mesh')).toBeVisible();
+    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
+    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
   });
 
   test('sort by Price/linft changes bundle order', async () => {
@@ -255,8 +255,8 @@ describe('OrderEntry — By Width mode', () => {
     // Click sort by linft
     await screen.getByRole('button', { name: /Price\/linft/ }).click();
 
-    await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
-    await expect.element(screen.getByText('2x4 Welded Wire Mesh')).toBeVisible();
+    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
+    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
   });
 
   test('clicking Select for Quote populates order form with correct product and quantity', async () => {
