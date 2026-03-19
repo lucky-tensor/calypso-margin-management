@@ -37,7 +37,11 @@ async function main() {
   await seed(sql, { databaseUrl: pg.url });
   console.log('  Demo data seeded.');
 
-  // 3. Spawn API server subprocess with DATABASE_URL set
+  // Enable demo-mode UI (quick-login buttons) automatically in dev.
+  // This is only set in the dev script — production builds are unaffected.
+  process.env.VITE_DEMO_MODE = 'true';
+
+  // 4. Spawn API server subprocess with DATABASE_URL set
   const apiServer = Bun.spawn(['bun', 'run', '--hot', 'src/index.ts'], {
     cwd: join(REPO_ROOT, 'apps', 'server'),
     env: { ...process.env, DATABASE_URL: pg.url, PORT: String(API_PORT) },
