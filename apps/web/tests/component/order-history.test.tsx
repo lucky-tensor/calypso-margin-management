@@ -235,7 +235,9 @@ describe('OrderHistory', () => {
     const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByRole('button', { name: 'Confirm', exact: true }))
+      .toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
   });
 
