@@ -6,6 +6,7 @@ import {
   convertUnits,
   calculateMargin,
   findBundlesByWidth,
+  findBundlesBySqft,
 } from 'core';
 import type { Bundle } from 'core';
 
@@ -180,6 +181,260 @@ function BundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: BundleCardPr
               {formatPercent(marginPercent)}%
             </span>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ByAreaBundleCardProps {
+  bundle: Bundle;
+  sellPricePerUnit: number;
+  onSelectForQuote: (bundle: Bundle, sellPrice: number) => void;
+}
+
+function ByAreaBundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: ByAreaBundleCardProps) {
+  const { product, quantity, totalLinft, totalSqft, overage } = bundle;
+  const p = product.properties;
+
+  const totalRevenue = sellPricePerUnit * quantity;
+  const costTotal = bundle.costTotal;
+  const { dollars: marginDollars, percent: marginPercent } = calculateMargin(
+    totalRevenue,
+    costTotal,
+  );
+  const marginHealth = evaluateMargin(marginPercent, p.margin_target, p.margin_floor);
+
+  const customerPricePerSqft = totalSqft === 0 ? 0 : totalRevenue / totalSqft;
+  const customerPricePerLinft = totalLinft === 0 ? 0 : totalRevenue / totalLinft;
+
+  const lengthFeet = p.length_inches / 12;
+  const rollLengthStr = Number.isInteger(lengthFeet)
+    ? `${lengthFeet} ft`
+    : `${lengthFeet.toFixed(1)} ft`;
+
+  const overageRounded = Math.round(overage * 10) / 10;
+  const deliveredLabel =
+    overageRounded <= 0
+      ? `${formatNumber(totalSqft, 0)} sqft delivered`
+      : `${formatNumber(totalSqft, 0)} sqft delivered — ${formatNumber(overageRounded, 1)} sqft overage`;
+
+  const marginColorClasses: Record<string, string> = {
+    healthy: 'bg-emerald-50 border-emerald-400 text-emerald-800',
+    warning: 'bg-amber-50 border-amber-400 text-amber-800',
+    critical: 'bg-red-50 border-red-400 text-red-800',
+  };
+  const marginTextClasses: Record<string, string> = {
+    healthy: 'text-emerald-700',
+    warning: 'text-amber-700',
+    critical: 'text-red-700',
+  };
+
+  const marginClass = marginColorClasses[marginHealth];
+  const marginTextClass = marginTextClasses[marginHealth];
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
+      {/* Header: product name + SKU */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
+          <p className="text-xs text-zinc-500">{p.sku}</p>
+          <p className="text-xs text-zinc-400">
+            {p.width_inches}&quot; &times; {p.length_inches}&quot; rolls ({rollLengthStr})
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onSelectForQuote(bundle, sellPricePerUnit)}
+          className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
+        >
+          Select for Quote
+        </button>
+      </div>
+
+      {/* Quantity + delivery */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <span className="text-zinc-700">
+          <span className="font-medium">{quantity}</span> rolls
+        </span>
+        <span className="text-zinc-500">{deliveredLabel}</span>
+      </div>
+
+      {/* Customer pricing */}
+      {sellPricePerUnit > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700">
+          <span>
+            <span className="font-medium">${customerPricePerSqft.toFixed(2)}</span>
+            <span className="text-zinc-500"> / sqft</span>
+          </span>
+          <span>
+            <span className="font-medium">${customerPricePerLinft.toFixed(2)}</span>
+            <span className="text-zinc-500"> / linft</span>
+          </span>
+        </div>
+      )}
+
+      {/* Margin — rep only */}
+      {sellPricePerUnit > 0 && (
+        <div className={`rounded-md border px-3 py-2 ${marginClass}`}>
+          <div className="flex items-baseline gap-3">
+            <span className={`text-sm font-bold ${marginTextClass}`}>
+              {formatCurrency(marginDollars)}
+            </span>
+            <span className={`text-sm font-semibold ${marginTextClass}`}>
+              {formatPercent(marginPercent)}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ByAreaPanelProps {
+  products: Product[];
+  onSelectForQuote: (productId: string, quantity: number, sellPrice: number) => void;
+}
+
+function ByAreaPanel({ products, onSelectForQuote }: ByAreaPanelProps) {
+  const [sqft, setSqft] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
+  const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
+
+  const totalSqft = parseFloat(sqft);
+  const sellPricePerUnit = parseFloat(sellPrice);
+
+  const hasSqft = !isNaN(totalSqft) && totalSqft > 0;
+  const hasSellPrice = !isNaN(sellPricePerUnit) && sellPricePerUnit >= 0;
+
+  const rawBundles: Bundle[] = useMemo(() => {
+    if (!hasSqft) return [];
+    return findBundlesBySqft(products, totalSqft);
+  }, [products, totalSqft, hasSqft]);
+
+  const sortedBundles: Bundle[] = useMemo(() => {
+    if (rawBundles.length === 0 || !hasSellPrice || sellPricePerUnit === 0) {
+      return rawBundles;
+    }
+    const copy = [...rawBundles];
+    if (sortKey === 'price-sqft') {
+      copy.sort((a, b) => {
+        const aPricePerSqft = a.totalSqft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalSqft;
+        const bPricePerSqft = b.totalSqft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalSqft;
+        return aPricePerSqft - bPricePerSqft;
+      });
+    } else {
+      copy.sort((a, b) => {
+        const aPricePerLinft =
+          a.totalLinft === 0 ? 0 : (sellPricePerUnit * a.quantity) / a.totalLinft;
+        const bPricePerLinft =
+          b.totalLinft === 0 ? 0 : (sellPricePerUnit * b.quantity) / b.totalLinft;
+        return aPricePerLinft - bPricePerLinft;
+      });
+    }
+    return copy;
+  }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
+
+  const handleSelectForQuote = (bundle: Bundle, bundleSellPrice: number) => {
+    onSelectForQuote(bundle.product.id, bundle.quantity, bundleSellPrice);
+  };
+
+  const showEmptyState = hasSqft && products.length === 0;
+  const showNoBundles = hasSqft && products.length > 0 && rawBundles.length === 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Inputs row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="area-input-sqft" className="block text-sm font-medium text-zinc-700 mb-1">
+            Total Area (sqft)
+          </label>
+          <input
+            id="area-input-sqft"
+            type="number"
+            step="any"
+            min="0"
+            value={sqft}
+            onChange={(e) => setSqft(e.target.value)}
+            placeholder="500"
+            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="area-input-sell-price"
+            className="block text-sm font-medium text-zinc-700 mb-1"
+          >
+            Sell price per unit ($)
+          </label>
+          <input
+            id="area-input-sell-price"
+            type="number"
+            step="0.01"
+            min="0"
+            value={sellPrice}
+            onChange={(e) => setSellPrice(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Empty state: no products in catalog */}
+      {showEmptyState && (
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
+          <p className="text-sm text-zinc-500">No products in catalog</p>
+        </div>
+      )}
+
+      {/* No bundles found (shouldn't normally happen since all products are eligible) */}
+      {showNoBundles && (
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
+          <p className="text-sm text-zinc-500">No products in catalog</p>
+        </div>
+      )}
+
+      {/* Bundle list */}
+      {sortedBundles.length > 0 && (
+        <div className="space-y-3">
+          {/* Sort controls */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-zinc-500">Sort by:</span>
+            <button
+              type="button"
+              onClick={() => setSortKey('price-sqft')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                sortKey === 'price-sqft'
+                  ? 'bg-zinc-800 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+              }`}
+            >
+              Price/sqft ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortKey('price-linft')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                sortKey === 'price-linft'
+                  ? 'bg-zinc-800 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+              }`}
+            >
+              Price/linft ↑
+            </button>
+          </div>
+
+          {/* Bundle cards */}
+          {sortedBundles.map((bundle) => (
+            <ByAreaBundleCard
+              key={bundle.product.id}
+              bundle={bundle}
+              sellPricePerUnit={hasSellPrice ? sellPricePerUnit : 0}
+              onSelectForQuote={handleSelectForQuote}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -618,9 +873,7 @@ export const OrderEntry: React.FC = () => {
           )}
 
           {mode === 'by-area' && (
-            <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
-              <p className="text-sm text-zinc-500">Square footage quote flow coming soon.</p>
-            </div>
+            <ByAreaPanel products={products} onSelectForQuote={handleSelectForQuote} />
           )}
 
           {mode === 'by-product' && (
