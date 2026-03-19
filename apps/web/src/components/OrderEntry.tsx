@@ -26,10 +26,11 @@ const MODE_TABS: { value: OrderMode; label: string }[] = [
   { value: 'search-by-uom', label: 'Search by UoM' },
 ];
 
-function targetMarginPricePerEach(product: Product): string {
+export function targetMarginPricePerEach(product: Product): string {
   const costPerEach = product.properties.cost_per_each ?? 0;
   const target = product.properties.margin_target / 100;
-  return (costPerEach / (1 - target)).toFixed(2);
+  const raw = costPerEach / (1 - target);
+  return (Math.ceil(raw * 100) / 100).toFixed(2);
 }
 
 interface OrderForm {

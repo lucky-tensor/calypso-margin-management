@@ -40,7 +40,8 @@ export function MarginBox({
   marginFloor,
   variant = 'compact',
 }: MarginBoxProps) {
-  const health = evaluateMargin(marginPercent, marginTarget, marginFloor);
+  const displayMargin = Math.round(marginPercent * 10) / 10;
+  const health = evaluateMargin(displayMargin, marginTarget, marginFloor);
   const colorClass = MARGIN_COLOR_CLASSES[health];
   const textClass = MARGIN_TEXT_CLASSES[health];
 
