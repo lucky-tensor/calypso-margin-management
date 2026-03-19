@@ -11,7 +11,7 @@ import { startPostgres, type PgContainer } from '../helpers/pg-container';
  * - Seed is idempotent (second startup does not duplicate data)
  */
 
-const PORT = 31418;
+const PORT = 31419;
 const BASE = `http://localhost:${PORT}`;
 const SERVER_READY_TIMEOUT_MS = 20_000;
 const REPO_ROOT = new URL('../../../../', import.meta.url).pathname;
