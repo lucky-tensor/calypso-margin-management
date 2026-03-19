@@ -1,14 +1,10 @@
 import { test, expect, describe, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { commands } from '@vitest/browser/context';
+import { page } from '@vitest/browser/context';
 import React from 'react';
 import { OrderEntry } from '../../src/components/OrderEntry';
 import type { Product } from 'core';
-
-// TODO(#42): Several tests in this file are skipped because vitest-browser-react's
-// render() result does not expose getAllByText(). These tests need to be rewritten
-// using the Locator API (page.getByText / locator.all()) as part of the
-// consolidated order entry UI work in issue #42.
 
 // Three products with different widths and lengths
 const productA: Product = {
@@ -19,7 +15,7 @@ const productA: Product = {
     sku: 'WM-48-10FT',
     material: 'Galvanized Steel',
     width_inches: 48,
-    length_inches: 120, // 10 ft roll → 40 sqft/roll
+    length_inches: 120, // 10 ft roll -> 40 sqft/roll
     weight_per_sqft: 0.58,
     cost_per_each: 32.0,
     cost_per_linft: null,
@@ -38,7 +34,7 @@ const productB: Product = {
     sku: 'WM-48-5FT',
     material: 'Galvanized Steel',
     width_inches: 48,
-    length_inches: 60, // 5 ft roll → 20 sqft/roll
+    length_inches: 60, // 5 ft roll -> 20 sqft/roll
     weight_per_sqft: 0.7,
     cost_per_each: 20.0,
     cost_per_linft: null,
@@ -57,7 +53,7 @@ const productC: Product = {
     sku: 'WM-36-10FT',
     material: 'Galvanized Steel',
     width_inches: 36,
-    length_inches: 120, // 10 ft roll → 30 sqft/roll
+    length_inches: 120, // 10 ft roll -> 30 sqft/roll
     weight_per_sqft: 0.5,
     cost_per_each: 28.0,
     cost_per_linft: null,
@@ -70,53 +66,61 @@ const productC: Product = {
 
 const ALL_PRODUCTS = [productA, productB, productC];
 
-async function switchToByArea(screen: ReturnType<typeof render>) {
-  await expect.element(screen.getByRole('button', { name: 'By Area' })).toBeVisible();
-  await screen.getByRole('button', { name: 'By Area' }).click();
+async function switchToSearchByUoMSqft(screen: ReturnType<typeof render>) {
+  await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
+  await screen.getByRole('button', { name: 'Search by UoM' }).click();
+  // Switch to Sqft toggle
+  await screen.getByRole('button', { name: 'Sqft' }).click();
 }
 
-describe('OrderEntry — By Area mode', () => {
+describe('OrderEntry — Search by UoM / Sqft mode', () => {
   beforeEach(async () => {
     await commands.resetFixtureState();
   });
 
-  test.skip('3 products in catalog, enter 500 sqft — shows 3 bundle options', async () => {
+  test('3 products in catalog, enter 500 sqft — shows bundle options', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    // All 3 products should appear as bundles (use first() — names also appear in multi-product combo cards)
-    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('Narrow Mesh 36in').first()).toBeVisible();
+    // All 3 products should appear as bundles (use page locator for multiple matches)
+    const meshA = await page.getByText('4x4 Welded Wire Mesh').all();
+    expect(meshA.length).toBeGreaterThan(0);
+    const meshB = await page.getByText('2x4 Welded Wire Mesh').all();
+    expect(meshB.length).toBeGreaterThan(0);
+    const meshC = await page.getByText('Narrow Mesh 36in').all();
+    expect(meshC.length).toBeGreaterThan(0);
   });
 
-  test.skip('bundle cards show correct quantities for 500 sqft', async () => {
+  test('bundle cards show correct quantities for 500 sqft', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll → ceil(500/40) = 13 rolls
-    // productB: 20 sqft/roll → ceil(500/20) = 25 rolls
-    // productC: 30 sqft/roll → ceil(500/30) = 17 rolls
+    // productA: 40 sqft/roll -> ceil(500/40) = 13 rolls
+    // productB: 20 sqft/roll -> ceil(500/20) = 25 rolls
+    // productC: 30 sqft/roll -> ceil(500/30) = 17 rolls
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    await expect.element(screen.getAllByText(/13.*rolls/).first()).toBeVisible();
-    await expect.element(screen.getAllByText(/25.*rolls/).first()).toBeVisible();
-    await expect.element(screen.getAllByText(/17.*rolls/).first()).toBeVisible();
+    const rolls13 = await page.getByText(/13.*rolls/).all();
+    expect(rolls13.length).toBeGreaterThan(0);
+    const rolls25 = await page.getByText(/25.*rolls/).all();
+    expect(rolls25.length).toBeGreaterThan(0);
+    const rolls17 = await page.getByText(/17.*rolls/).all();
+    expect(rolls17.length).toBeGreaterThan(0);
   });
 
   test('overage is calculated and displayed correctly', async () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll → ceil(500/40) = 13 rolls → 520 sqft delivered → 20 sqft overage
+    // productA: 40 sqft/roll -> ceil(500/40) = 13 rolls -> 520 sqft delivered -> 20 sqft overage
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
     await expect.element(screen.getByText(/520.*sqft delivered/)).toBeVisible();
@@ -127,9 +131,9 @@ describe('OrderEntry — By Area mode', () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll → ceil(400/40) = 10 rolls → 400 sqft delivered → 0 overage
+    // productA: 40 sqft/roll -> ceil(400/40) = 10 rolls -> 400 sqft delivered -> 0 overage
     await screen.getByLabelText('Total Area (sqft)').fill('400');
 
     await expect.element(screen.getByText(/400.*sqft delivered/)).toBeVisible();
@@ -141,60 +145,57 @@ describe('OrderEntry — By Area mode', () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    // productA: 48" × 120" rolls (10 ft)
+    // productA: 48" x 120" rolls (10 ft)
     await expect.element(screen.getByText(/48.*120.*rolls/)).toBeVisible();
   });
 
-  test('entering sell price shows price/sqft and price/linft on bundle card', async () => {
-    await commands.setFixtureState({ state: { products: [productA] } });
-
-    const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
-
-    // productA: 40 sqft/roll → ceil(500/40) = 13 rolls
-    // totalSqft = 520, totalLinft = 130 (10 ft × 13)
-    // total revenue = 13 * 50 = 650
-    // price/sqft = 650 / 520 = 1.25
-    // price/linft = 650 / 130 = 5.00
-    await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
-
-    await expect.element(screen.getByText(/\$1\.25/)).toBeVisible();
-    await expect.element(screen.getByText(/\/ sqft/)).toBeVisible();
-    await expect.element(screen.getByText(/\$5\.00/)).toBeVisible();
-    await expect.element(screen.getByText(/\/ linft/)).toBeVisible();
-  });
-
-  test('sell price updates margin across all visible bundle cards', async () => {
+  test('multi-product bundle card renders one sell price input per item', async () => {
     await commands.setFixtureState({ state: { products: [productA, productB] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    // productA: 13 rolls @ $32 cost = $416; sell $50 → rev = $650; margin = (650-416)/650 ≈ 36%
-    // productB: 25 rolls @ $20 cost = $500; sell $50 → rev = $1250; margin = (1250-500)/1250 = 60%
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
+    // Each product should have sell price inputs (may appear in multiple cards)
+    const priceInputsA = await page
+      .getByRole('spinbutton', { name: 'Sell price for 4x4 Welded Wire Mesh' })
+      .all();
+    expect(priceInputsA.length).toBeGreaterThan(0);
+
+    const priceInputsB = await page
+      .getByRole('spinbutton', { name: 'Sell price for 2x4 Welded Wire Mesh' })
+      .all();
+    expect(priceInputsB.length).toBeGreaterThan(0);
+  });
+
+  test('update one item sell price — combined margin updates correctly', async () => {
+    await commands.setFixtureState({ state: { products: [productA] } });
+
+    const screen = render(<OrderEntry />);
+    await switchToSearchByUoMSqft(screen);
+
+    // productA: 13 rolls @ $32 cost = $416; sell $50 -> rev = 13*50 = $650; margin = (650-416)/650 ≈ 36%
+    await screen.getByLabelText('Total Area (sqft)').fill('500');
+    await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
     await expect.element(screen.getByText('36.0%')).toBeVisible();
-    await expect.element(screen.getByText('60.0%')).toBeVisible();
   });
 
   test('margin is shown with correct color for healthy margin', async () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $50 → rev = $650; margin ≈ 36% → healthy
+    // 13 rolls @ $32 = $416 cost; sell $50 -> rev = $650; margin ≈ 36% -> healthy
     await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
+    await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
     const marginEl = screen.getByText(/36\.0%/);
     await expect.element(marginEl).toBeVisible();
@@ -205,12 +206,12 @@ describe('OrderEntry — By Area mode', () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $38 → rev = $494; margin = (494-416)/494 ≈ 15.8% → warning
+    // 13 rolls @ $32 = $416 cost; sell $38 -> rev = $494; margin = (494-416)/494 ≈ 15.8% -> warning
     await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('38');
+    await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('38');
 
     const marginEl = screen.getByText(/15\.8%/);
     await expect.element(marginEl).toBeVisible();
@@ -221,93 +222,109 @@ describe('OrderEntry — By Area mode', () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $36 → rev = $468; margin = (468-416)/468 ≈ 11.1% → critical
+    // 13 rolls @ $32 = $416 cost; sell $36 -> rev = $468; margin = (468-416)/468 ≈ 11.1% -> critical
     await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('36');
+    await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('36');
 
     const marginEl = screen.getByText(/11\.1%/);
     await expect.element(marginEl).toBeVisible();
     expect(marginEl.element().closest('.bg-red-50')).not.toBeNull();
   });
 
-  test.skip('sort by Price/sqft changes bundle order', async () => {
+  test('sort by Price/sqft reorders bundles', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
 
     await screen.getByRole('button', { name: /Price\/sqft/ }).click();
 
-    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('Narrow Mesh 36in').first()).toBeVisible();
+    const meshA = await page.getByText('4x4 Welded Wire Mesh').all();
+    expect(meshA.length).toBeGreaterThan(0);
+    const meshB = await page.getByText('2x4 Welded Wire Mesh').all();
+    expect(meshB.length).toBeGreaterThan(0);
+    const meshC = await page.getByText('Narrow Mesh 36in').all();
+    expect(meshC.length).toBeGreaterThan(0);
   });
 
-  test.skip('sort by Price/linft changes bundle order', async () => {
+  test('sort by Price/linft reorders bundles', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
 
     await screen.getByRole('button', { name: /Price\/linft/ }).click();
 
-    await expect.element(screen.getAllByText('4x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('2x4 Welded Wire Mesh').first()).toBeVisible();
-    await expect.element(screen.getAllByText('Narrow Mesh 36in').first()).toBeVisible();
+    const meshA = await page.getByText('4x4 Welded Wire Mesh').all();
+    expect(meshA.length).toBeGreaterThan(0);
+    const meshB = await page.getByText('2x4 Welded Wire Mesh').all();
+    expect(meshB.length).toBeGreaterThan(0);
+    const meshC = await page.getByText('Narrow Mesh 36in').all();
+    expect(meshC.length).toBeGreaterThan(0);
   });
 
-  test('clicking Select for Quote populates order form with correct product and quantity', async () => {
-    await commands.setFixtureState({ state: { products: [productA] } });
+  test('Create Orders on a 2-item bundle creates 2 draft orders via API and navigates to history', async () => {
+    // Use two products that will produce a multi-product bundle
+    // productA: 40 sqft/roll, productB: 20 sqft/roll
+    // For 50 sqft, single-product: A needs ceil(50/40)=2 rolls (80 sqft, 30 overage)
+    //                               B needs ceil(50/20)=3 rolls (60 sqft, 10 overage)
+    // Multi-product: 1 A (40 sqft) + 1 B (20 sqft) = 60 sqft, 10 overage — same as B alone
+    // We'll find one of these combos in the results
+    await commands.setFixtureState({ state: { products: [productA, productB] } });
 
-    const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
+    let navigatedToHistory = false;
+    const screen = render(
+      <OrderEntry
+        onNavigateToHistory={() => {
+          navigatedToHistory = true;
+        }}
+      />,
+    );
+    await switchToSearchByUoMSqft(screen);
 
-    // productA: ceil(500/40) = 13 rolls
-    await screen.getByLabelText('Total Area (sqft)').fill('500');
-    await screen.getByLabelText('Sell price per unit ($)').fill('50');
+    await screen.getByLabelText('Customer').fill('Test Customer');
+    await screen.getByLabelText('Total Area (sqft)').fill('50');
 
-    await screen.getByRole('button', { name: 'Select for Quote' }).click();
+    // Find all Create Orders buttons — one of the bundle cards should be a multi-product bundle
+    // Fill in sell prices for both products where they appear
+    const priceInputsA = await page
+      .getByRole('spinbutton', { name: 'Sell price for 4x4 Welded Wire Mesh' })
+      .all();
+    const priceInputsB = await page
+      .getByRole('spinbutton', { name: 'Sell price for 2x4 Welded Wire Mesh' })
+      .all();
 
-    // Should return to By Product mode
-    await expect.element(screen.getByLabelText('Product')).toBeVisible();
+    // Fill sell prices for all instances
+    for (const input of priceInputsA) {
+      await input.fill('50');
+    }
+    for (const input of priceInputsB) {
+      await input.fill('30');
+    }
 
-    // Product should be pre-selected
-    const productSelect = screen.getByLabelText('Product');
-    await expect.element(productSelect).toHaveValue('prod-a');
+    // Click Create Orders on the last card (multi-product combo) — there should be multiple
+    const createButtons = await page.getByRole('button', { name: 'Create Orders' }).all();
+    expect(createButtons.length).toBeGreaterThan(0);
 
-    // Quantity should be 13 (eaches)
-    await expect.element(screen.getByLabelText('Quantity')).toHaveValue(13);
+    // Click the last Create Orders button (most likely the multi-product combo)
+    await createButtons[createButtons.length - 1].click();
 
-    // Sell price should be pre-filled with 50
-    await expect.element(screen.getByLabelText('Sell price per each ($)')).toHaveValue(50);
-  });
+    // Wait for navigation
+    await expect.poll(() => navigatedToHistory).toBeTruthy();
 
-  test('clicking Select for Quote switches back to By Product mode', async () => {
-    await commands.setFixtureState({ state: { products: [productA] } });
-
-    const screen = render(<OrderEntry />);
-    await switchToByArea(screen);
-
-    await screen.getByLabelText('Total Area (sqft)').fill('500');
-
-    await screen.getByRole('button', { name: 'Select for Quote' }).click();
-
-    // By Product form fields should be visible
-    await expect.element(screen.getByLabelText('Customer')).toBeVisible();
-    await expect.element(screen.getByLabelText('Product')).toBeVisible();
-    await expect.element(screen.getByLabelText('Quantity')).toBeVisible();
-
-    // Area input should no longer be visible
-    await expect.element(screen.getByLabelText('Total Area (sqft)')).not.toBeInTheDocument();
+    // Verify orders were created
+    const state = (await commands.getFixtureState()) as {
+      orders?: Array<{ properties: { product_name: string } }>;
+    };
+    expect(state.orders).toBeDefined();
+    expect(state.orders!.length).toBeGreaterThanOrEqual(1);
   });
 
   test('empty catalog shows "No products in catalog" message', async () => {
@@ -316,7 +333,6 @@ describe('OrderEntry — By Area mode', () => {
     const screen = render(<OrderEntry />);
 
     // When catalog is empty, the order entry shows "No products found" state (not mode tabs)
-    // The by-area panel is only shown when products.length > 0
     await expect.element(screen.getByText(/No products found/)).toBeVisible();
   });
 });

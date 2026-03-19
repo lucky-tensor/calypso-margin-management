@@ -35,7 +35,7 @@ async function waitAndSelectProduct(screen: ReturnType<typeof render>) {
   await screen.getByLabelText('Product').selectOptions(PRODUCT_OPTION);
 }
 
-describe('OrderEntry', () => {
+describe('OrderEntry — Specific Product mode', () => {
   beforeEach(async () => {
     await commands.resetFixtureState();
   });
@@ -301,5 +301,21 @@ describe('OrderEntry', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Confirm Order' }))
       .toHaveAttribute('tabindex', '6');
+  });
+
+  test('mode selector shows exactly two tabs: "Specific Product" and "Search by UoM"', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await expect.element(screen.getByRole('button', { name: 'Specific Product' })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
+
+    // Old tabs should not exist
+    await expect
+      .element(screen.getByRole('button', { name: 'By Product' }))
+      .not.toBeInTheDocument();
+    await expect.element(screen.getByRole('button', { name: 'By Width' })).not.toBeInTheDocument();
+    await expect.element(screen.getByRole('button', { name: 'By Area' })).not.toBeInTheDocument();
   });
 });

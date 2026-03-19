@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Product, UnitOfMeasure } from 'core';
 import {
-  evaluateMargin,
   calculateCost,
   convertUnits,
   calculateMargin,
@@ -9,21 +8,23 @@ import {
   findBundlesBySqft,
 } from 'core';
 import type { Bundle } from 'core';
+import { MarginBox } from './order-entry/MarginBox';
+import { BundleSortControls } from './order-entry/BundleSortControls';
+import type { BundleSortKey } from './order-entry/BundleSortControls';
+import { BundleCardBase } from './order-entry/BundleCardBase';
 
 const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
   { value: 'square_foot', label: 'Square ft' },
   { value: 'linear_foot', label: 'Linear ft' },
 ];
 
-type OrderMode = 'by-product' | 'by-width' | 'by-area';
+type OrderMode = 'specific-product' | 'search-by-uom';
+type SearchUomToggle = 'linft' | 'sqft';
 
 const MODE_TABS: { value: OrderMode; label: string }[] = [
-  { value: 'by-product', label: 'By Product' },
-  { value: 'by-width', label: 'By Width' },
-  { value: 'by-area', label: 'By Area' },
+  { value: 'specific-product', label: 'Specific Product' },
+  { value: 'search-by-uom', label: 'Search by UoM' },
 ];
-
-type BundleSortKey = 'price-sqft' | 'price-linft';
 
 function targetMarginPricePerEach(product: Product): string {
   const costPerEach = product.properties.cost_per_each ?? 0;
@@ -67,399 +68,52 @@ function formatNumber(value: number, decimals = 2): string {
   });
 }
 
-function formatPercent(value: number): string {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-}
+// --- Search by UoM Panel ---
 
-// --- By Width mode ---
-
-interface WidthInputs {
-  width: string;
-  length: string;
-  sellPrice: string;
-}
-
-const EMPTY_WIDTH_INPUTS: WidthInputs = {
-  width: '',
-  length: '',
-  sellPrice: '',
-};
-
-interface BundleCardProps {
-  bundle: Bundle;
-  sellPricePerUnit: number;
-  onSelectForQuote: (bundle: Bundle, sellPrice: number) => void;
-}
-
-function BundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: BundleCardProps) {
-  const { totalLinft, totalSqft, overage } = bundle;
-  const { product, quantity } = bundle.items[0];
-  const p = product.properties;
-
-  const totalRevenue = sellPricePerUnit * quantity;
-  const costTotal = bundle.costTotal;
-  const { dollars: marginDollars, percent: marginPercent } = calculateMargin(
-    totalRevenue,
-    costTotal,
-  );
-  const marginHealth = evaluateMargin(marginPercent, p.margin_target, p.margin_floor);
-
-  const customerPricePerSqft = totalSqft === 0 ? 0 : totalRevenue / totalSqft;
-  const customerPricePerLinft = totalLinft === 0 ? 0 : totalRevenue / totalLinft;
-
-  const overageLinft = overage / (p.width_inches / 12);
-
-  const marginColorClasses: Record<string, string> = {
-    healthy: 'bg-emerald-50 border-emerald-400 text-emerald-800',
-    warning: 'bg-amber-50 border-amber-400 text-amber-800',
-    critical: 'bg-red-50 border-red-400 text-red-800',
-  };
-  const marginTextClasses: Record<string, string> = {
-    healthy: 'text-emerald-700',
-    warning: 'text-amber-700',
-    critical: 'text-red-700',
-  };
-
-  const marginClass = marginColorClasses[marginHealth];
-  const marginTextClass = marginTextClasses[marginHealth];
-
-  const overageLinftRounded = Math.round(overageLinft * 10) / 10;
-  const overageLabel =
-    overageLinftRounded <= 0 ? 'no waste' : `${formatNumber(overageLinftRounded, 1)} ft overage`;
-
-  return (
-    <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
-      {/* Header: product name + SKU */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
-          <p className="text-xs text-zinc-500">{p.sku}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onSelectForQuote(bundle, sellPricePerUnit)}
-          className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
-        >
-          Select for Quote
-        </button>
-      </div>
-
-      {/* Quantity + delivery */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        <span className="text-zinc-700">
-          <span className="font-medium">{quantity}</span> rolls
-        </span>
-        <span className="text-zinc-500">
-          {formatNumber(totalLinft, 0)} ft — {overageLabel}
-        </span>
-      </div>
-
-      {/* Customer pricing */}
-      {sellPricePerUnit > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700">
-          <span>
-            <span className="font-medium">${customerPricePerSqft.toFixed(2)}</span>
-            <span className="text-zinc-500"> / sqft</span>
-          </span>
-          <span>
-            <span className="font-medium">${customerPricePerLinft.toFixed(2)}</span>
-            <span className="text-zinc-500"> / linft</span>
-          </span>
-        </div>
-      )}
-
-      {/* Margin — rep only */}
-      {sellPricePerUnit > 0 && (
-        <div className={`rounded-md border px-3 py-2 ${marginClass}`}>
-          <div className="flex items-baseline gap-3">
-            <span className={`text-sm font-bold ${marginTextClass}`}>
-              {formatCurrency(marginDollars)}
-            </span>
-            <span className={`text-sm font-semibold ${marginTextClass}`}>
-              {formatPercent(marginPercent)}%
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ByAreaBundleCardProps {
-  bundle: Bundle;
-  sellPricePerUnit: number;
-  onSelectForQuote: (bundle: Bundle, sellPrice: number) => void;
-}
-
-function ByAreaBundleCard({ bundle, sellPricePerUnit, onSelectForQuote }: ByAreaBundleCardProps) {
-  const { totalLinft, totalSqft, overage } = bundle;
-  const { product, quantity } = bundle.items[0];
-  const p = product.properties;
-
-  const totalRevenue = sellPricePerUnit * quantity;
-  const costTotal = bundle.costTotal;
-  const { dollars: marginDollars, percent: marginPercent } = calculateMargin(
-    totalRevenue,
-    costTotal,
-  );
-  const marginHealth = evaluateMargin(marginPercent, p.margin_target, p.margin_floor);
-
-  const customerPricePerSqft = totalSqft === 0 ? 0 : totalRevenue / totalSqft;
-  const customerPricePerLinft = totalLinft === 0 ? 0 : totalRevenue / totalLinft;
-
-  const lengthFeet = p.length_inches / 12;
-  const rollLengthStr = Number.isInteger(lengthFeet)
-    ? `${lengthFeet} ft`
-    : `${lengthFeet.toFixed(1)} ft`;
-
-  const overageRounded = Math.round(overage * 10) / 10;
-  const deliveredLabel =
-    overageRounded <= 0
-      ? `${formatNumber(totalSqft, 0)} sqft delivered`
-      : `${formatNumber(totalSqft, 0)} sqft delivered — ${formatNumber(overageRounded, 1)} sqft overage`;
-
-  const marginColorClasses: Record<string, string> = {
-    healthy: 'bg-emerald-50 border-emerald-400 text-emerald-800',
-    warning: 'bg-amber-50 border-amber-400 text-amber-800',
-    critical: 'bg-red-50 border-red-400 text-red-800',
-  };
-  const marginTextClasses: Record<string, string> = {
-    healthy: 'text-emerald-700',
-    warning: 'text-amber-700',
-    critical: 'text-red-700',
-  };
-
-  const marginClass = marginColorClasses[marginHealth];
-  const marginTextClass = marginTextClasses[marginHealth];
-
-  return (
-    <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
-      {/* Header: product name + SKU */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
-          <p className="text-xs text-zinc-500">{p.sku}</p>
-          <p className="text-xs text-zinc-400">
-            {p.width_inches}&quot; &times; {p.length_inches}&quot; rolls ({rollLengthStr})
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onSelectForQuote(bundle, sellPricePerUnit)}
-          className="shrink-0 px-3 py-1.5 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
-        >
-          Select for Quote
-        </button>
-      </div>
-
-      {/* Quantity + delivery */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        <span className="text-zinc-700">
-          <span className="font-medium">{quantity}</span> rolls
-        </span>
-        <span className="text-zinc-500">{deliveredLabel}</span>
-      </div>
-
-      {/* Customer pricing */}
-      {sellPricePerUnit > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700">
-          <span>
-            <span className="font-medium">${customerPricePerSqft.toFixed(2)}</span>
-            <span className="text-zinc-500"> / sqft</span>
-          </span>
-          <span>
-            <span className="font-medium">${customerPricePerLinft.toFixed(2)}</span>
-            <span className="text-zinc-500"> / linft</span>
-          </span>
-        </div>
-      )}
-
-      {/* Margin — rep only */}
-      {sellPricePerUnit > 0 && (
-        <div className={`rounded-md border px-3 py-2 ${marginClass}`}>
-          <div className="flex items-baseline gap-3">
-            <span className={`text-sm font-bold ${marginTextClass}`}>
-              {formatCurrency(marginDollars)}
-            </span>
-            <span className={`text-sm font-semibold ${marginTextClass}`}>
-              {formatPercent(marginPercent)}%
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ByAreaPanelProps {
+interface SearchByUoMPanelProps {
   products: Product[];
-  onSelectForQuote: (productId: string, quantity: number, sellPrice: number) => void;
+  onNavigateToHistory?: () => void;
 }
 
-function ByAreaPanel({ products, onSelectForQuote }: ByAreaPanelProps) {
+function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelProps) {
+  const [toggle, setToggle] = useState<SearchUomToggle>('linft');
+  const [width, setWidth] = useState('');
+  const [length, setLength] = useState('');
   const [sqft, setSqft] = useState('');
-  const [sellPrice, setSellPrice] = useState('');
+  const [customer, setCustomer] = useState('');
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
+  const [creating, setCreating] = useState(false);
 
+  // Distinct widths from product catalog, sorted ascending
+  const distinctWidths = useMemo(() => {
+    const widths = new Set<number>();
+    for (const p of products) {
+      widths.add(p.properties.width_inches);
+    }
+    return Array.from(widths).sort((a, b) => a - b);
+  }, [products]);
+
+  const widthInches = parseFloat(width);
+  const lengthFeet = parseFloat(length);
   const totalSqft = parseFloat(sqft);
-  const sellPricePerUnit = parseFloat(sellPrice);
-
-  const hasSqft = !isNaN(totalSqft) && totalSqft > 0;
-  const hasSellPrice = !isNaN(sellPricePerUnit) && sellPricePerUnit >= 0;
-
-  const rawBundles: Bundle[] = useMemo(() => {
-    if (!hasSqft) return [];
-    return findBundlesBySqft(products, totalSqft);
-  }, [products, totalSqft, hasSqft]);
-
-  const sortedBundles: Bundle[] = useMemo(() => {
-    if (rawBundles.length === 0 || !hasSellPrice || sellPricePerUnit === 0) {
-      return rawBundles;
-    }
-    const copy = [...rawBundles];
-    if (sortKey === 'price-sqft') {
-      copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
-    } else {
-      copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
-    }
-    return copy;
-  }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
-
-  const handleSelectForQuote = (bundle: Bundle, bundleSellPrice: number) => {
-    onSelectForQuote(bundle.items[0].product.id, bundle.items[0].quantity, bundleSellPrice);
-  };
-
-  const showEmptyState = hasSqft && products.length === 0;
-  const showNoBundles = hasSqft && products.length > 0 && rawBundles.length === 0;
-
-  return (
-    <div className="space-y-4">
-      {/* Inputs row */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="area-input-sqft" className="block text-sm font-medium text-zinc-700 mb-1">
-            Total Area (sqft)
-          </label>
-          <input
-            id="area-input-sqft"
-            type="number"
-            step="any"
-            min="0"
-            value={sqft}
-            onChange={(e) => setSqft(e.target.value)}
-            placeholder="500"
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="area-input-sell-price"
-            className="block text-sm font-medium text-zinc-700 mb-1"
-          >
-            Sell price per unit ($)
-          </label>
-          <input
-            id="area-input-sell-price"
-            type="number"
-            step="0.01"
-            min="0"
-            value={sellPrice}
-            onChange={(e) => setSellPrice(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Empty state: no products in catalog */}
-      {showEmptyState && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
-          <p className="text-sm text-zinc-500">No products in catalog</p>
-        </div>
-      )}
-
-      {/* No bundles found (shouldn't normally happen since all products are eligible) */}
-      {showNoBundles && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
-          <p className="text-sm text-zinc-500">No products in catalog</p>
-        </div>
-      )}
-
-      {/* Bundle list */}
-      {sortedBundles.length > 0 && (
-        <div className="space-y-3">
-          {/* Sort controls */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-zinc-500">Sort by:</span>
-            <button
-              type="button"
-              onClick={() => setSortKey('price-sqft')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                sortKey === 'price-sqft'
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              Price/sqft ↑
-            </button>
-            <button
-              type="button"
-              onClick={() => setSortKey('price-linft')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                sortKey === 'price-linft'
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              Price/linft ↑
-            </button>
-          </div>
-
-          {/* Bundle cards */}
-          {sortedBundles.map((bundle) => (
-            <ByAreaBundleCard
-              key={bundle.items[0].product.id}
-              bundle={bundle}
-              sellPricePerUnit={hasSellPrice ? sellPricePerUnit : 0}
-              onSelectForQuote={handleSelectForQuote}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ByWidthPanelProps {
-  products: Product[];
-  onSelectForQuote: (productId: string, quantity: number, sellPrice: number) => void;
-}
-
-function ByWidthPanel({ products, onSelectForQuote }: ByWidthPanelProps) {
-  const [inputs, setInputs] = useState<WidthInputs>({ ...EMPTY_WIDTH_INPUTS });
-  const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
-
-  const widthInches = parseFloat(inputs.width);
-  const lengthFeet = parseFloat(inputs.length);
-  const sellPricePerUnit = parseFloat(inputs.sellPrice);
 
   const hasWidth = !isNaN(widthInches) && widthInches > 0;
   const hasLength = !isNaN(lengthFeet) && lengthFeet > 0;
-  const hasSellPrice = !isNaN(sellPricePerUnit) && sellPricePerUnit >= 0;
+  const hasSqft = !isNaN(totalSqft) && totalSqft > 0;
 
   const rawBundles: Bundle[] = useMemo(() => {
-    if (!hasWidth || !hasLength) return [];
-    const totalLengthInches = lengthFeet * 12;
-    return findBundlesByWidth(products, widthInches, totalLengthInches);
-  }, [products, widthInches, lengthFeet, hasWidth, hasLength]);
+    if (toggle === 'linft') {
+      if (!hasWidth || !hasLength) return [];
+      const totalLengthInches = lengthFeet * 12;
+      return findBundlesByWidth(products, widthInches, totalLengthInches);
+    } else {
+      if (!hasSqft) return [];
+      return findBundlesBySqft(products, totalSqft);
+    }
+  }, [toggle, products, widthInches, lengthFeet, hasWidth, hasLength, hasSqft, totalSqft]);
 
   const sortedBundles: Bundle[] = useMemo(() => {
-    if (rawBundles.length === 0 || !hasSellPrice || sellPricePerUnit === 0) {
-      return rawBundles;
-    }
+    if (rawBundles.length === 0) return rawBundles;
     const copy = [...rawBundles];
     if (sortKey === 'price-sqft') {
       copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
@@ -467,136 +121,202 @@ function ByWidthPanel({ products, onSelectForQuote }: ByWidthPanelProps) {
       copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
     }
     return copy;
-  }, [rawBundles, sortKey, sellPricePerUnit, hasSellPrice]);
+  }, [rawBundles, sortKey]);
 
-  const handleInputChange = (field: keyof WidthInputs, value: string) => {
-    setInputs((prev) => ({ ...prev, [field]: value }));
+  const handleCreateOrders = async (
+    items: Array<{
+      productId: string;
+      quantity: number;
+      sellPricePerEach: number;
+      customer: string;
+    }>,
+  ) => {
+    setCreating(true);
+    try {
+      for (const item of items) {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            customer: item.customer.trim() || customer.trim(),
+            product_id: item.productId,
+            quantity: item.quantity,
+            unit_of_measure: 'each',
+            sell_price_per_unit: item.sellPricePerEach,
+            notes: '',
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to create order');
+        }
+      }
+      if (onNavigateToHistory) {
+        onNavigateToHistory();
+      }
+    } catch {
+      // Error handling — could show an error state
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const handleSelectForQuote = (bundle: Bundle, sellPrice: number) => {
-    onSelectForQuote(bundle.items[0].product.id, bundle.items[0].quantity, sellPrice);
-  };
+  // Empty state logic
+  const showEmptyState =
+    toggle === 'linft'
+      ? hasWidth && hasLength && rawBundles.length === 0
+      : hasSqft && products.length === 0;
+  const showNoBundles =
+    toggle === 'sqft' && hasSqft && products.length > 0 && rawBundles.length === 0;
 
-  const showEmptyState = hasWidth && hasLength && rawBundles.length === 0;
+  const emptyMessage =
+    toggle === 'linft' ? `No products available at ${widthInches}"` : 'No products in catalog';
 
   return (
     <div className="space-y-4">
-      {/* Inputs row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label
-            htmlFor="width-input-width"
-            className="block text-sm font-medium text-zinc-700 mb-1"
-          >
-            Width (inches)
-          </label>
-          <input
-            id="width-input-width"
-            type="number"
-            step="any"
-            min="0"
-            value={inputs.width}
-            onChange={(e) => handleInputChange('width', e.target.value)}
-            placeholder="48"
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="width-input-length"
-            className="block text-sm font-medium text-zinc-700 mb-1"
-          >
-            Total Length (feet)
-          </label>
-          <input
-            id="width-input-length"
-            type="number"
-            step="any"
-            min="0"
-            value={inputs.length}
-            onChange={(e) => handleInputChange('length', e.target.value)}
-            placeholder="200"
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="width-input-sell-price"
-            className="block text-sm font-medium text-zinc-700 mb-1"
-          >
-            Sell price per unit ($)
-          </label>
-          <input
-            id="width-input-sell-price"
-            type="number"
-            step="0.01"
-            min="0"
-            value={inputs.sellPrice}
-            onChange={(e) => handleInputChange('sellPrice', e.target.value)}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-          />
-        </div>
+      {/* Customer field */}
+      <div>
+        <label htmlFor="search-customer" className="block text-sm font-medium text-zinc-700 mb-1">
+          Customer
+        </label>
+        <input
+          id="search-customer"
+          type="text"
+          value={customer}
+          onChange={(e) => setCustomer(e.target.value)}
+          placeholder="Customer name"
+          className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+        />
       </div>
 
-      {/* Empty state */}
-      {showEmptyState && (
+      {/* Toggle: Linear ft | Sqft */}
+      <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
+        <button
+          type="button"
+          onClick={() => setToggle('linft')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            toggle === 'linft'
+              ? 'bg-white text-zinc-900 shadow-sm'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          Linear ft
+        </button>
+        <button
+          type="button"
+          onClick={() => setToggle('sqft')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            toggle === 'sqft'
+              ? 'bg-white text-zinc-900 shadow-sm'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          Sqft
+        </button>
+      </div>
+
+      {/* Inputs */}
+      {toggle === 'linft' ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="search-width" className="block text-sm font-medium text-zinc-700 mb-1">
+              Width
+            </label>
+            <select
+              id="search-width"
+              value={width}
+              onChange={(e) => setWidth(e.target.value)}
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
+            >
+              <option value="">Select width...</option>
+              {distinctWidths.map((w) => (
+                <option key={w} value={w}>
+                  {w}&quot;
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="search-length" className="block text-sm font-medium text-zinc-700 mb-1">
+              Total Length (ft)
+            </label>
+            <input
+              id="search-length"
+              type="number"
+              step="any"
+              min="0"
+              value={length}
+              onChange={(e) => setLength(e.target.value)}
+              placeholder="200"
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 max-w-xs">
+          <div>
+            <label htmlFor="search-sqft" className="block text-sm font-medium text-zinc-700 mb-1">
+              Total Area (sqft)
+            </label>
+            <input
+              id="search-sqft"
+              type="number"
+              step="any"
+              min="0"
+              value={sqft}
+              onChange={(e) => setSqft(e.target.value)}
+              placeholder="500"
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Empty states */}
+      {(showEmptyState || showNoBundles) && (
         <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
-          <p className="text-sm text-zinc-500">No products available at {widthInches}&quot;</p>
+          <p className="text-sm text-zinc-500">{emptyMessage}</p>
         </div>
       )}
 
       {/* Bundle list */}
       {sortedBundles.length > 0 && (
         <div className="space-y-3">
-          {/* Sort controls */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-zinc-500">Sort by:</span>
-            <button
-              type="button"
-              onClick={() => setSortKey('price-sqft')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                sortKey === 'price-sqft'
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              Price/sqft ↑
-            </button>
-            <button
-              type="button"
-              onClick={() => setSortKey('price-linft')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                sortKey === 'price-linft'
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-            >
-              Price/linft ↑
-            </button>
-          </div>
+          <BundleSortControls sortKey={sortKey} onSortChange={setSortKey} />
 
-          {/* Bundle cards */}
-          {sortedBundles.map((bundle) => (
-            <BundleCard
-              key={bundle.items[0].product.id}
-              bundle={bundle}
-              sellPricePerUnit={hasSellPrice ? sellPricePerUnit : 0}
-              onSelectForQuote={handleSelectForQuote}
-            />
-          ))}
+          {sortedBundles.map((bundle, idx) => {
+            const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
+            return (
+              <BundleCardBase
+                key={bKey}
+                bundleKey={bKey}
+                bundle={bundle}
+                displayMode={toggle}
+                customer={customer}
+                onCreateOrders={handleCreateOrders}
+                creating={creating}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-export const OrderEntry: React.FC = () => {
+// --- Main OrderEntry Component ---
+
+export interface OrderEntryProps {
+  onNavigateToHistory?: () => void;
+}
+
+export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<OrderMode>('by-product');
+  const [mode, setMode] = useState<OrderMode>('specific-product');
 
   // Tracks whether the current product selection came from "Select for Quote".
   // When true, skip the auto-seed of sell price so the quoted price is preserved.
@@ -669,15 +389,6 @@ export const OrderEntry: React.FC = () => {
             margin_percent,
           };
         })()
-      : null;
-
-  const marginHealth =
-    computed && selectedProduct
-      ? evaluateMargin(
-          computed.margin_percent,
-          selectedProduct.properties.margin_target,
-          selectedProduct.properties.margin_floor,
-        )
       : null;
 
   const isFractionalEaches = computed !== null && !Number.isInteger(computed.qty_eaches);
@@ -761,38 +472,6 @@ export const OrderEntry: React.FC = () => {
     }
   };
 
-  // Called by ByWidthPanel when rep clicks "Select for Quote"
-  const handleSelectForQuote = (productId: string, quantity: number, sellPrice: number) => {
-    if (sellPrice > 0) {
-      skipSellPriceSeedRef.current = true;
-    }
-    setMode('by-product');
-    setForm((prev) => ({
-      ...prev,
-      productId,
-      quantity: quantity.toString(),
-      uom: 'each',
-      sellPrice: sellPrice > 0 ? sellPrice.toFixed(2) : prev.sellPrice,
-    }));
-    setSubmitError(null);
-    setSuccessMessage(null);
-  };
-
-  const marginColorClasses: Record<string, string> = {
-    healthy: 'bg-emerald-50 border-emerald-400 text-emerald-800',
-    warning: 'bg-amber-50 border-amber-400 text-amber-800',
-    critical: 'bg-red-50 border-red-400 text-red-800',
-  };
-
-  const marginTextClasses: Record<string, string> = {
-    healthy: 'text-emerald-700',
-    warning: 'text-amber-700',
-    critical: 'text-red-700',
-  };
-
-  const marginClass = marginHealth ? marginColorClasses[marginHealth] : '';
-  const marginTextClass = marginHealth ? marginTextClasses[marginHealth] : 'text-zinc-400';
-
   return (
     <div>
       <h2 className="text-lg font-semibold text-zinc-900 mb-4">New Order</h2>
@@ -850,15 +529,11 @@ export const OrderEntry: React.FC = () => {
             ))}
           </div>
 
-          {mode === 'by-width' && (
-            <ByWidthPanel products={products} onSelectForQuote={handleSelectForQuote} />
+          {mode === 'search-by-uom' && (
+            <SearchByUoMPanel products={products} onNavigateToHistory={onNavigateToHistory} />
           )}
 
-          {mode === 'by-area' && (
-            <ByAreaPanel products={products} onSelectForQuote={handleSelectForQuote} />
-          )}
-
-          {mode === 'by-product' && (
+          {mode === 'specific-product' && (
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-6">
                 {/* Left column: inputs */}
@@ -1088,19 +763,13 @@ export const OrderEntry: React.FC = () => {
                           </div>
 
                           {/* Margin display */}
-                          <div className={`mt-3 rounded-lg border-2 p-4 ${marginClass}`}>
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
-                              Margin
-                            </p>
-                            <div className="flex items-baseline gap-3">
-                              <span className={`text-2xl font-black ${marginTextClass}`}>
-                                {formatCurrency(computed.margin_dollars)}
-                              </span>
-                              <span className={`text-xl font-bold ${marginTextClass}`}>
-                                {formatPercent(computed.margin_percent)}%
-                              </span>
-                            </div>
-                          </div>
+                          <MarginBox
+                            marginDollars={computed.margin_dollars}
+                            marginPercent={computed.margin_percent}
+                            marginTarget={selectedProduct.properties.margin_target}
+                            marginFloor={selectedProduct.properties.margin_floor}
+                            variant="large"
+                          />
                         </div>
                       ) : (
                         <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4">

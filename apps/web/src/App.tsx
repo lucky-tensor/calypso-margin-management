@@ -82,7 +82,9 @@ function App() {
         </header>
 
         <div className="flex-1 overflow-auto p-6">
-          {activeView === 'order-entry' && <OrderEntry />}
+          {activeView === 'order-entry' && (
+            <OrderEntry onNavigateToHistory={() => setActiveView('history')} />
+          )}
           {activeView === 'products' && <ProductCatalog />}
           {activeView === 'history' && <OrderHistory />}
         </div>
