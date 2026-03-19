@@ -181,7 +181,9 @@ export const OrderEntry: React.FC = () => {
       {!loadingProducts && !productError && products.length === 0 && (
         <div className="text-center py-12">
           <p className="text-zinc-500 text-sm mb-2">No products found.</p>
-          <p className="text-zinc-400 text-sm">Add products in the catalog before creating an order.</p>
+          <p className="text-zinc-400 text-sm">
+            Add products in the catalog before creating an order.
+          </p>
         </div>
       )}
 
