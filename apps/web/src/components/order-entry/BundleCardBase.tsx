@@ -1,7 +1,15 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Bundle } from 'core';
+import type { Bundle, Product } from 'core';
 import { calculateMargin, calculateCost, convertUnits } from 'core';
 import { MarginBox } from './MarginBox';
+
+/** Compute the ceiling target-margin price per each for a product. */
+function targetMarginPricePerEach(product: Product): string {
+  const costPerEach = product.properties.cost_per_each ?? 0;
+  const target = product.properties.margin_target / 100;
+  const raw = costPerEach / (1 - target);
+  return (Math.ceil(raw * 100) / 100).toFixed(2);
+}
 
 function formatNumber(value: number, decimals = 2): string {
   return value.toLocaleString('en-US', {
@@ -38,11 +46,11 @@ export function BundleCardBase({
 }: BundleCardBaseProps) {
   const { totalLinft, totalSqft, overage, items } = bundle;
 
-  // Per-item sell prices, keyed by product id
+  // Per-item sell prices, keyed by product id — seeded with target-margin prices
   const [itemPrices, setItemPrices] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const item of items) {
-      initial[item.product.id] = '';
+      initial[item.product.id] = targetMarginPricePerEach(item.product);
     }
     return initial;
   });
