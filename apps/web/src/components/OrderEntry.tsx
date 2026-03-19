@@ -286,20 +286,31 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
         <div className="space-y-3">
           <BundleSortControls sortKey={sortKey} onSortChange={setSortKey} />
 
-          {sortedBundles.map((bundle, idx) => {
-            const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
-            return (
-              <BundleCardBase
-                key={bKey}
-                bundleKey={bKey}
-                bundle={bundle}
-                displayMode={toggle}
-                customer={customer}
-                onCreateOrders={handleCreateOrders}
-                creating={creating}
-              />
-            );
-          })}
+          {(() => {
+            const showPills = sortedBundles.length >= 2;
+            const minCostTotal = showPills
+              ? Math.min(...sortedBundles.map((b) => b.costTotal))
+              : Infinity;
+            const minOverage = showPills
+              ? Math.min(...sortedBundles.map((b) => b.overage))
+              : Infinity;
+            return sortedBundles.map((bundle, idx) => {
+              const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
+              return (
+                <BundleCardBase
+                  key={bKey}
+                  bundleKey={bKey}
+                  bundle={bundle}
+                  displayMode={toggle}
+                  customer={customer}
+                  onCreateOrders={handleCreateOrders}
+                  creating={creating}
+                  isBestMargin={showPills && bundle.costTotal === minCostTotal}
+                  isLeastWaste={showPills && bundle.overage === minOverage}
+                />
+              );
+            });
+          })()}
         </div>
       )}
     </div>
