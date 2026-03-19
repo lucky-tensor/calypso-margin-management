@@ -24,6 +24,10 @@ const fixtureProduct: Product = {
   },
 };
 
+// sqftPerEach = (48 * 120) / 144 = 40
+// linftPerEach = 120 / 12 = 10
+// targetMarginPricePerEach = 32 / (1 - 0.25) = 42.666... => "42.67"
+
 const PRODUCT_OPTION = '4x4 Welded Wire Mesh (WM-4X4-10GA)';
 
 async function waitAndSelectProduct(screen: ReturnType<typeof render>) {
@@ -56,6 +60,27 @@ describe('OrderEntry', () => {
     await expect.element(screen.getByText(/Galvanized Steel/)).toBeVisible();
   });
 
+  test('sell price label reads "Sell price per each ($)"', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+
+    await expect.element(screen.getByLabelText('Sell price per each ($)')).toBeVisible();
+  });
+
+  test('default sell price on product selection is target-margin per-each rate', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+
+    // 32 / (1 - 0.25) = 42.666... => "42.67"
+    await expect.element(screen.getByLabelText('Sell price per each ($)')).toHaveValue(42.67);
+  });
+
   test('entering quantity and UOM shows converted quantities in all three units', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
@@ -64,11 +89,40 @@ describe('OrderEntry', () => {
     await waitAndSelectProduct(screen);
     // Default UOM is square_foot; 200 sqft = 5 eaches = 50 linear feet
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
 
     await expect.element(screen.getByText(/5.*units/)).toBeVisible();
     await expect.element(screen.getByText(/50.*lin ft/)).toBeVisible();
     await expect.element(screen.getByText(/200.*sq ft/)).toBeVisible();
+  });
+
+  test('equivalent per-sqft and per-linft rates display below sell price input', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    // With $42.67/each, sqftPerEach=40, linftPerEach=10:
+    // pricePerSqft = 42.67 / 40 = 1.07, pricePerLinft = 42.67 / 10 = 4.27
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+
+    await expect.element(screen.getByText(/\$1\.07 \/ sqft/)).toBeVisible();
+    await expect.element(screen.getByText(/\$4\.27 \/ linft/)).toBeVisible();
+  });
+
+  test('revenue = qty_eaches x sell_price_per_each', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    // 200 sqft = 5 eaches; $42.67/each => revenue = 5 * 42.67 = 213.35
+    // cost = 5 * 32 = 160; margin = (213.35 - 160) / 213.35 = 25%
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+
+    await expect.element(screen.getByText(/213\.35/)).toBeVisible();
+    await expect.element(screen.getByText(/160/)).toBeVisible();
   });
 
   test('entering sell price shows revenue, cost, and margin', async () => {
@@ -77,13 +131,13 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    // 200 sqft at $1.20/sqft: Revenue = 240, Cost = 5 × 32 = 160, Margin = 80/240 = 33.3%
+    // 200 sqft = 5 eaches at $50/each: Revenue = 250, Cost = 5 × 32 = 160, Margin = 90/250 = 36%
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
+    await screen.getByLabelText('Sell price per each ($)').fill('50');
 
-    await expect.element(screen.getByText(/240/)).toBeVisible();
+    await expect.element(screen.getByText(/250/)).toBeVisible();
     await expect.element(screen.getByText(/160/)).toBeVisible();
-    await expect.element(screen.getByText(/33\.3%/)).toBeVisible();
+    await expect.element(screen.getByText(/36\.0%/)).toBeVisible();
   });
 
   test('margin display is green when at or above target', async () => {
@@ -92,11 +146,11 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    // 200 sqft at $1.20/sqft → 33.3% margin — above 25% target → healthy/green
+    // 200 sqft = 5 eaches at $50/each → 36% margin — above 25% target → healthy/green
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
+    await screen.getByLabelText('Sell price per each ($)').fill('50');
 
-    const marginSection = screen.getByText('33.3%');
+    const marginSection = screen.getByText('36.0%');
     await expect.element(marginSection).toBeVisible();
     const marginEl = marginSection.element();
     expect(marginEl.closest('.bg-emerald-50')).not.toBeNull();
@@ -108,11 +162,11 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    // 200 sqft at $1.00/sqft: Revenue = 200, Cost = 160, Margin = 40/200 = 20% — between 15% floor and 25% target
+    // 200 sqft = 5 eaches at $38/each: Revenue = 190, Cost = 160, Margin = 30/190 = 15.8% — between 15% floor and 25% target
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.00');
+    await screen.getByLabelText('Sell price per each ($)').fill('38');
 
-    const marginSection = screen.getByText('20.0%');
+    const marginSection = screen.getByText('15.8%');
     await expect.element(marginSection).toBeVisible();
     const marginEl = marginSection.element();
     expect(marginEl.closest('.bg-amber-50')).not.toBeNull();
@@ -124,9 +178,9 @@ describe('OrderEntry', () => {
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    // 200 sqft at $0.90/sqft: Revenue = 180, Cost = 160, Margin = 20/180 = 11.1% — below 15% floor
+    // 200 sqft = 5 eaches at $36/each: Revenue = 180, Cost = 160, Margin = 20/180 = 11.1% — below 15% floor
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('0.90');
+    await screen.getByLabelText('Sell price per each ($)').fill('36');
 
     const marginSection = screen.getByText('11.1%');
     await expect.element(marginSection).toBeVisible();
@@ -134,31 +188,79 @@ describe('OrderEntry', () => {
     expect(marginEl.closest('.bg-red-50')).not.toBeNull();
   });
 
-  test('fractional eaches trigger warning message', async () => {
+  test('fractional eaches show round-up and round-down buttons', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    await screen.getByLabelText('Unit of measure').selectOptions('Linear ft');
-    // 73 linear feet / 10 ft per each = 7.3 eaches (fractional)
-    await screen.getByLabelText('Quantity').fill('73');
-    await screen.getByLabelText('Sell price per unit ($)').fill('4.80');
+    // 100 sqft / 40 sqft per each = 2.5 eaches (fractional)
+    await screen.getByLabelText('Quantity').fill('100');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
 
-    await expect.element(screen.getByText(/Fractional unit/)).toBeVisible();
+    // ceil(2.5) = 3, 3 * 40 = 120 sqft; floor(2.5) = 2, 2 * 40 = 80 sqft
+    await expect
+      .element(screen.getByRole('button', { name: /Round up to 3 eaches \(120 sqft\)/ }))
+      .toBeVisible();
+    await expect
+      .element(screen.getByRole('button', { name: /Round down to 2 eaches \(80 sqft\)/ }))
+      .toBeVisible();
   });
 
-  test('non-fractional eaches do not show warning', async () => {
+  test('clicking round up updates quantity and removes buttons', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
-    // 200 sqft = 5 eaches (integer) — no fractional warning
-    await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
+    await screen.getByLabelText('Quantity').fill('100');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
 
-    await expect.element(screen.getByText(/Fractional unit/)).not.toBeInTheDocument();
+    await screen.getByRole('button', { name: /Round up to 3 eaches \(120 sqft\)/ }).click();
+
+    // Quantity should be updated to 120 (3 eaches * 40 sqft)
+    await expect.element(screen.getByLabelText('Quantity')).toHaveValue(120);
+    // Rounding buttons should disappear (3 eaches is whole)
+    await expect.element(screen.getByRole('button', { name: /Round up/ })).not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole('button', { name: /Round down/ }))
+      .not.toBeInTheDocument();
+  });
+
+  test('clicking round down updates quantity and removes buttons', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    await screen.getByLabelText('Quantity').fill('100');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+
+    await screen.getByRole('button', { name: /Round down to 2 eaches \(80 sqft\)/ }).click();
+
+    // Quantity should be updated to 80 (2 eaches * 40 sqft)
+    await expect.element(screen.getByLabelText('Quantity')).toHaveValue(80);
+    // Rounding buttons should disappear (2 eaches is whole)
+    await expect.element(screen.getByRole('button', { name: /Round up/ })).not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole('button', { name: /Round down/ }))
+      .not.toBeInTheDocument();
+  });
+
+  test('whole eaches show no rounding buttons', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    // 200 sqft = 5 eaches (integer) — no rounding buttons
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+
+    await expect.element(screen.getByRole('button', { name: /Round up/ })).not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole('button', { name: /Round down/ }))
+      .not.toBeInTheDocument();
   });
 
   test('Confirm Order submits to API and resets form on success', async () => {
@@ -169,7 +271,7 @@ describe('OrderEntry', () => {
     await screen.getByLabelText('Customer').fill('Acme Fencing Co');
     await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per unit ($)').fill('1.20');
+    await screen.getByLabelText('Sell price per each ($)').fill('50');
 
     await screen.getByRole('button', { name: 'Confirm Order' }).click();
 
@@ -194,7 +296,7 @@ describe('OrderEntry', () => {
     await expect.element(screen.getByLabelText('Quantity')).toHaveAttribute('tabindex', '3');
     await expect.element(screen.getByLabelText('Unit of measure')).toHaveAttribute('tabindex', '4');
     await expect
-      .element(screen.getByLabelText('Sell price per unit ($)'))
+      .element(screen.getByLabelText('Sell price per each ($)'))
       .toHaveAttribute('tabindex', '5');
     await expect
       .element(screen.getByRole('button', { name: 'Confirm Order' }))

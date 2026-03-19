@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Product, UnitOfMeasure } from 'core';
-import { computeOrderFields, evaluateMargin, calculateCost, convertUnits } from 'core';
+import { evaluateMargin, calculateCost, convertUnits, calculateMargin } from 'core';
 
 const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
   { value: 'square_foot', label: 'Square ft' },
   { value: 'linear_foot', label: 'Linear ft' },
 ];
 
-function targetMarginPrice(product: Product, uom: UnitOfMeasure): string {
-  const cost = calculateCost(product, convertUnits(product, 1, uom));
+function targetMarginPricePerEach(product: Product): string {
+  const costPerEach = product.properties.cost_per_each ?? 0;
   const target = product.properties.margin_target / 100;
-  return (cost / (1 - target)).toFixed(2);
+  return (costPerEach / (1 - target)).toFixed(2);
 }
 
 interface OrderForm {
@@ -87,21 +87,42 @@ export const OrderEntry: React.FC = () => {
 
   const selectedProduct = products.find((p) => p.id === form.productId) ?? null;
 
-  // When product or UOM changes, seed sell price with the zero-margin rate
+  // When product changes, seed sell price with the target-margin per-each rate
   useEffect(() => {
     if (selectedProduct) {
-      setForm((prev) => ({ ...prev, sellPrice: targetMarginPrice(selectedProduct, prev.uom) }));
+      setForm((prev) => ({ ...prev, sellPrice: targetMarginPricePerEach(selectedProduct) }));
     }
-  }, [selectedProduct, form.uom]);
+  }, [selectedProduct]);
 
   const qty = parseFloat(form.quantity);
-  const price = parseFloat(form.sellPrice);
+  const sellPricePerEach = parseFloat(form.sellPrice);
   const hasQty = !isNaN(qty) && qty > 0;
-  const hasPrice = !isNaN(price) && price >= 0;
+  const hasPrice = !isNaN(sellPricePerEach) && sellPricePerEach >= 0;
 
+  // Compute unit conversions
+  const conversions =
+    selectedProduct && hasQty ? convertUnits(selectedProduct, qty, form.uom) : null;
+
+  // Compute revenue, cost, margin using per-each price
   const computed =
-    selectedProduct && hasQty && hasPrice
-      ? computeOrderFields(selectedProduct, qty, form.uom, price)
+    selectedProduct && hasQty && hasPrice && conversions
+      ? (() => {
+          const total_revenue = conversions.eaches * sellPricePerEach;
+          const total_cost = calculateCost(selectedProduct, conversions);
+          const { dollars: margin_dollars, percent: margin_percent } = calculateMargin(
+            total_revenue,
+            total_cost,
+          );
+          return {
+            qty_eaches: conversions.eaches,
+            qty_linft: conversions.linear_feet,
+            qty_sqft: conversions.square_feet,
+            total_revenue,
+            total_cost,
+            margin_dollars,
+            margin_percent,
+          };
+        })()
       : null;
 
   const marginHealth =
@@ -115,10 +136,45 @@ export const OrderEntry: React.FC = () => {
 
   const isFractionalEaches = computed !== null && !Number.isInteger(computed.qty_eaches);
 
+  // Equivalent rates (per sqft and per linft) from sell price per each
+  const equivalentRates =
+    selectedProduct && hasPrice
+      ? (() => {
+          const p = selectedProduct.properties;
+          const sqftPerEach = (p.width_inches * p.length_inches) / 144;
+          const linftPerEach = p.length_inches / 12;
+          const pricePerSqft = sellPricePerEach / sqftPerEach;
+          const pricePerLinft = sellPricePerEach / linftPerEach;
+          return { pricePerSqft, pricePerLinft };
+        })()
+      : null;
+
   const handleChange = <K extends keyof OrderForm>(field: K, value: OrderForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSubmitError(null);
     setSuccessMessage(null);
+  };
+
+  const handleRoundUp = () => {
+    if (!computed || !selectedProduct) return;
+    const p = selectedProduct.properties;
+    const sqftPerEach = (p.width_inches * p.length_inches) / 144;
+    const linftPerEach = p.length_inches / 12;
+    const roundedEaches = Math.ceil(computed.qty_eaches);
+    const roundedQty =
+      form.uom === 'square_foot' ? roundedEaches * sqftPerEach : roundedEaches * linftPerEach;
+    handleChange('quantity', roundedQty.toString());
+  };
+
+  const handleRoundDown = () => {
+    if (!computed || !selectedProduct) return;
+    const p = selectedProduct.properties;
+    const sqftPerEach = (p.width_inches * p.length_inches) / 144;
+    const linftPerEach = p.length_inches / 12;
+    const roundedEaches = Math.floor(computed.qty_eaches);
+    const roundedQty =
+      form.uom === 'square_foot' ? roundedEaches * sqftPerEach : roundedEaches * linftPerEach;
+    handleChange('quantity', roundedQty.toString());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,7 +195,7 @@ export const OrderEntry: React.FC = () => {
           product_id: form.productId,
           quantity: qty,
           unit_of_measure: form.uom,
-          sell_price_per_unit: price,
+          sell_price_per_unit: sellPricePerEach,
           notes: form.notes.trim(),
         }),
       });
@@ -306,7 +362,7 @@ export const OrderEntry: React.FC = () => {
                     htmlFor="field-sell-price"
                     className="block text-sm font-medium text-zinc-700 mb-1"
                   >
-                    Sell price per unit ($)
+                    Sell price per each ($)
                   </label>
                   <input
                     id="field-sell-price"
@@ -319,6 +375,11 @@ export const OrderEntry: React.FC = () => {
                     tabIndex={5}
                     className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
                   />
+                  {equivalentRates && (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {`\u2248 $${equivalentRates.pricePerSqft.toFixed(2)} / sqft \u00b7 $${equivalentRates.pricePerLinft.toFixed(2)} / linft`}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -388,8 +449,21 @@ export const OrderEntry: React.FC = () => {
                         </div>
 
                         {isFractionalEaches && (
-                          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-700">
-                            Fractional unit — confirm with operations whether to round up or down
+                          <div className="mt-2 space-y-2">
+                            <button
+                              type="button"
+                              onClick={handleRoundUp}
+                              className="w-full px-3 py-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-300 rounded-md hover:bg-amber-100 transition-colors text-left"
+                            >
+                              {`\u2191 Round up to ${Math.ceil(computed.qty_eaches)} eaches (${Math.ceil(computed.qty_eaches) * ((selectedProduct.properties.width_inches * selectedProduct.properties.length_inches) / 144)} sqft)`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRoundDown}
+                              className="w-full px-3 py-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-300 rounded-md hover:bg-amber-100 transition-colors text-left"
+                            >
+                              {`\u2193 Round down to ${Math.floor(computed.qty_eaches)} eaches (${Math.floor(computed.qty_eaches) * ((selectedProduct.properties.width_inches * selectedProduct.properties.length_inches) / 144)} sqft)`}
+                            </button>
                           </div>
                         )}
                       </div>
