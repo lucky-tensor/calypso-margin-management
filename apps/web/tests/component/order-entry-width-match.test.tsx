@@ -234,8 +234,8 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
 
-    // Click sort by sqft
-    await screen.getByRole('button', { name: /Price\/sqft/ }).click();
+    // Click sort by sqft (label shows "Cost/sqft" when no sell prices entered)
+    await screen.getByRole('button', { name: /sqft/ }).click();
 
     // Both 48" bundles are visible (use page locator for multiple matches)
     const meshTexts = await page.getByText('4x4 Welded Wire Mesh').all();
@@ -253,8 +253,8 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
 
-    // Click sort by linft
-    await screen.getByRole('button', { name: /Price\/linft/ }).click();
+    // Click sort by linft (label shows "Cost/linft" when no sell prices entered)
+    await screen.getByRole('button', { name: /linft/ }).click();
 
     const meshTexts = await page.getByText('4x4 Welded Wire Mesh').all();
     expect(meshTexts.length).toBeGreaterThan(0);

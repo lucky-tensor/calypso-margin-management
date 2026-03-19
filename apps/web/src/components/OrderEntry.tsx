@@ -84,6 +84,8 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
   const [customer, setCustomer] = useState('');
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
   const [creating, setCreating] = useState(false);
+  // Prices reported by each BundleCardBase, keyed by bundleKey
+  const [cardPrices, setCardPrices] = useState<Record<string, Record<string, string>>>({});
 
   // Distinct widths from product catalog, sorted ascending
   const distinctWidths = useMemo(() => {
@@ -113,16 +115,60 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
     }
   }, [toggle, products, widthInches, lengthFeet, hasWidth, hasLength, hasSqft, totalSqft]);
 
-  const sortedBundles: Bundle[] = useMemo(() => {
-    if (rawBundles.length === 0) return rawBundles;
-    const copy = [...rawBundles];
+  // Helper to compute customer sell $/sqft and $/linft for a bundle given stored card prices.
+  // Returns null when any item price is missing or invalid.
+  const getCustomerPrices = useCallback(
+    (bundle: Bundle, bKey: string): { pricePerSqft: number; pricePerLinft: number } | null => {
+      const prices = cardPrices[bKey];
+      if (!prices) return null;
+      let totalRevenue = 0;
+      for (const item of bundle.items) {
+        const priceStr = prices[item.product.id] ?? '';
+        const price = parseFloat(priceStr);
+        if (isNaN(price) || price <= 0) return null;
+        totalRevenue += item.quantity * price;
+      }
+      if (bundle.totalSqft === 0 && bundle.totalLinft === 0) return null;
+      return {
+        pricePerSqft: bundle.totalSqft > 0 ? totalRevenue / bundle.totalSqft : 0,
+        pricePerLinft: bundle.totalLinft > 0 ? totalRevenue / bundle.totalLinft : 0,
+      };
+    },
+    [cardPrices],
+  );
+
+  const { sortedEntries, usingCost } = useMemo(() => {
+    if (rawBundles.length === 0) return { sortedEntries: [], usingCost: true };
+
+    // Build enriched entries with a stable bKey derived from rawBundles index
+    const entries = rawBundles.map((bundle, idx) => {
+      const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
+      return { bundle, bKey, customer: getCustomerPrices(bundle, bKey) };
+    });
+
+    const allHaveCustomerPrices = entries.every((e) => e.customer !== null);
+
     if (sortKey === 'price-sqft') {
-      copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
+      if (allHaveCustomerPrices) {
+        entries.sort((a, b) => a.customer!.pricePerSqft - b.customer!.pricePerSqft);
+        return { sortedEntries: entries, usingCost: false };
+      }
+      entries.sort((a, b) => a.bundle.pricePerSqft - b.bundle.pricePerSqft);
     } else {
-      copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
+      if (allHaveCustomerPrices) {
+        entries.sort((a, b) => a.customer!.pricePerLinft - b.customer!.pricePerLinft);
+        return { sortedEntries: entries, usingCost: false };
+      }
+      entries.sort((a, b) => a.bundle.pricePerLinft - b.bundle.pricePerLinft);
     }
-    return copy;
-  }, [rawBundles, sortKey]);
+    return { sortedEntries: entries, usingCost: true };
+  }, [rawBundles, sortKey, getCustomerPrices]);
+
+  const sortedBundles = useMemo(() => sortedEntries.map((e) => e.bundle), [sortedEntries]);
+
+  const handlePricesChange = useCallback((bundleKey: string, prices: Record<string, string>) => {
+    setCardPrices((prev) => ({ ...prev, [bundleKey]: prices }));
+  }, []);
 
   const handleCreateOrders = async (
     items: Array<{
@@ -284,7 +330,7 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
       {/* Bundle list */}
       {sortedBundles.length > 0 && (
         <div className="space-y-3">
-          <BundleSortControls sortKey={sortKey} onSortChange={setSortKey} />
+          <BundleSortControls sortKey={sortKey} onSortChange={setSortKey} usingCost={usingCost} />
 
           {(() => {
             const showPills = sortedBundles.length >= 2;
@@ -294,8 +340,7 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
             const minOverage = showPills
               ? Math.min(...sortedBundles.map((b) => b.overage))
               : Infinity;
-            return sortedBundles.map((bundle, idx) => {
-              const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
+            return sortedEntries.map(({ bundle, bKey }) => {
               return (
                 <BundleCardBase
                   key={bKey}
@@ -307,6 +352,7 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
                   creating={creating}
                   isBestMargin={showPills && bundle.costTotal === minCostTotal}
                   isLeastWaste={showPills && bundle.overage === minOverage}
+                  onPricesChange={handlePricesChange}
                 />
               );
             });

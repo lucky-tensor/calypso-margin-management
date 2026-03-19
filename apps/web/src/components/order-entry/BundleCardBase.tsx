@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Bundle } from 'core';
 import { calculateMargin, calculateCost, convertUnits } from 'core';
 import { MarginBox } from './MarginBox';
@@ -30,6 +30,8 @@ export interface BundleCardBaseProps {
   isBestMargin?: boolean;
   /** Whether this bundle has the lowest overage among all shown bundles */
   isLeastWaste?: boolean;
+  /** Called whenever item prices change so parent can use them for sorting */
+  onPricesChange?: (bundleKey: string, prices: Record<string, string>) => void;
 }
 
 export function BundleCardBase({
@@ -41,6 +43,7 @@ export function BundleCardBase({
   creating = false,
   isBestMargin = false,
   isLeastWaste = false,
+  onPricesChange,
 }: BundleCardBaseProps) {
   const { totalLinft, totalSqft, overage, items } = bundle;
 
@@ -56,6 +59,11 @@ export function BundleCardBase({
   const handlePriceChange = useCallback((productId: string, value: string) => {
     setItemPrices((prev) => ({ ...prev, [productId]: value }));
   }, []);
+
+  // Notify parent whenever item prices change so parent can sort by customer sell price
+  useEffect(() => {
+    onPricesChange?.(bundleKey, itemPrices);
+  }, [bundleKey, itemPrices, onPricesChange]);
 
   // Compute combined economics across all items
   const combinedEconomics = useMemo(() => {

@@ -242,7 +242,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    await screen.getByRole('button', { name: /Price\/sqft/ }).click();
+    await screen.getByRole('button', { name: /sqft/ }).click();
 
     const meshA = await page.getByText('4x4 Welded Wire Mesh').all();
     expect(meshA.length).toBeGreaterThan(0);
@@ -260,7 +260,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    await screen.getByRole('button', { name: /Price\/linft/ }).click();
+    await screen.getByRole('button', { name: /linft/ }).click();
 
     const meshA = await page.getByText('4x4 Welded Wire Mesh').all();
     expect(meshA.length).toBeGreaterThan(0);
