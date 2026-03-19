@@ -1,6 +1,6 @@
 import { test, expect, describe, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { commands } from '@vitest/browser/context';
+import { commands, page } from '@vitest/browser/context';
 import React from 'react';
 import { OrderHistory } from '../../src/components/OrderHistory';
 import type { Order } from 'core';
@@ -276,9 +276,8 @@ describe('OrderHistory', () => {
     await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
 
     await expect.element(screen.getByText('Confirm this order?')).toBeVisible();
-    await expect
-      .element(screen.getByRole('button', { name: 'Confirm cancellation' }))
-      .toBeVisible();
+    const confirmButtons = page.getByRole('button', { name: 'Confirm', exact: true }).all();
+    await expect.element(confirmButtons[1]).toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Go back' })).toBeVisible();
   });
 
@@ -302,13 +301,12 @@ describe('OrderHistory', () => {
     await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
 
     // Dialog appears — confirm
-    await expect
-      .element(screen.getByRole('button', { name: 'Confirm cancellation' }))
-      .toBeVisible();
-    await screen.getByRole('button', { name: 'Confirm cancellation' }).click();
+    const confirmButtons = page.getByRole('button', { name: 'Confirm', exact: true }).all();
+    await expect.element(confirmButtons[1]).toBeVisible();
+    await confirmButtons[1].click();
 
     // Row should now show "Confirmed"
-    await expect.element(screen.getByText('Confirmed')).toBeVisible();
+    await expect.element(screen.getByRole('cell', { name: 'Confirmed' })).toBeVisible();
   });
 
   test('cancelling an order updates the row status', async () => {
@@ -321,10 +319,10 @@ describe('OrderHistory', () => {
 
     // Dialog appears — confirm cancel
     await expect.element(screen.getByText(/Cancel this order/)).toBeVisible();
-    await screen.getByRole('button', { name: 'Confirm cancellation' }).click();
+    await screen.getByRole('button', { name: 'Cancel order' }).click();
 
     // Row should now show "Cancelled"
-    await expect.element(screen.getByText('Cancelled')).toBeVisible();
+    await expect.element(screen.getByRole('cell', { name: 'Cancelled' })).toBeVisible();
   });
 
   test('confirmed order shows audit info', async () => {
