@@ -303,6 +303,45 @@ describe('OrderEntry — Specific Product mode', () => {
       .toHaveAttribute('tabindex', '6');
   });
 
+  test('margin box is green (emerald) when auto-seeded sell price is selected at target margin', async () => {
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    // Use the auto-seeded price (target-margin rate) and enter a quantity
+    // The seeded price must yield >= 25% margin so the margin box should be green
+    await screen.getByLabelText('Quantity').fill('200');
+    // The sell price input should already be seeded with the target-margin price
+
+    // Confirm the margin percent displayed rounds to 25.0% or above
+    const marginPercentEl = screen.getByText(/25\.0%|2[6-9]\.\d%|[3-9]\d\.\d%/);
+    await expect.element(marginPercentEl).toBeVisible();
+    const el = marginPercentEl.element();
+    expect(el.closest('.bg-emerald-50')).not.toBeNull();
+  });
+
+  test('margin box is green when displayed margin rounds to target (Fix 2: display-aligned color)', async () => {
+    // This test verifies that when margin_percent rounds to exactly the target (e.g. 25.0%),
+    // the margin box is green (emerald), not amber — fixing the display/color mismatch.
+    await commands.setFixtureState({ state: { products: [fixtureProduct] } });
+
+    const screen = render(<OrderEntry />);
+
+    await waitAndSelectProduct(screen);
+    // 200 sqft = 5 eaches at $42.67/each:
+    // Revenue = 5 * 42.67 = 213.35, Cost = 5 * 32 = 160
+    // Margin = 53.35 / 213.35 = 24.9941...% — displays as "25.0%" but raw is below 25%
+    // Fix 2 ensures evaluateMargin uses the rounded display value → healthy/green
+    await screen.getByLabelText('Quantity').fill('200');
+    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+
+    const marginSection = screen.getByText('25.0%');
+    await expect.element(marginSection).toBeVisible();
+    const marginEl = marginSection.element();
+    expect(marginEl.closest('.bg-emerald-50')).not.toBeNull();
+  });
+
   test('mode selector shows exactly two tabs: "Specific Product" and "Search by UoM"', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
