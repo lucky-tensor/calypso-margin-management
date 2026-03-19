@@ -195,9 +195,7 @@ describe('OrderEntry', () => {
     await expect.element(screen.getByLabelText('Customer')).toHaveAttribute('tabindex', '1');
     await expect.element(screen.getByLabelText('Product')).toHaveAttribute('tabindex', '2');
     await expect.element(screen.getByLabelText('Quantity')).toHaveAttribute('tabindex', '3');
-    await expect
-      .element(screen.getByLabelText('Unit of measure'))
-      .toHaveAttribute('tabindex', '4');
+    await expect.element(screen.getByLabelText('Unit of measure')).toHaveAttribute('tabindex', '4');
     await expect
       .element(screen.getByLabelText('Sell price per unit ($)'))
       .toHaveAttribute('tabindex', '5');
