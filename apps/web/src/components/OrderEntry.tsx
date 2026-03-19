@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Product, UnitOfMeasure } from 'core';
-import { computeOrderFields, evaluateMargin } from 'core';
+import { computeOrderFields, evaluateMargin, calculateCost, convertUnits } from 'core';
 
 const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
-  { value: 'each', label: 'Each' },
-  { value: 'linear_foot', label: 'Linear ft' },
   { value: 'square_foot', label: 'Square ft' },
+  { value: 'linear_foot', label: 'Linear ft' },
 ];
+
+function zeroMarginPrice(product: Product, uom: UnitOfMeasure): string {
+  const cost = calculateCost(product, convertUnits(product, 1, uom));
+  return cost.toFixed(2);
+}
 
 interface OrderForm {
   customer: string;
@@ -21,7 +25,7 @@ const EMPTY_FORM: OrderForm = {
   customer: '',
   productId: '',
   quantity: '',
-  uom: 'each',
+  uom: 'square_foot',
   sellPrice: '',
   notes: '',
 };
@@ -81,6 +85,13 @@ export const OrderEntry: React.FC = () => {
   }, [fetchProducts]);
 
   const selectedProduct = products.find((p) => p.id === form.productId) ?? null;
+
+  // When product or UOM changes, seed sell price with the zero-margin rate
+  useEffect(() => {
+    if (selectedProduct) {
+      setForm((prev) => ({ ...prev, sellPrice: zeroMarginPrice(selectedProduct, prev.uom) }));
+    }
+  }, [selectedProduct, form.uom]);
 
   const qty = parseFloat(form.quantity);
   const price = parseFloat(form.sellPrice);
