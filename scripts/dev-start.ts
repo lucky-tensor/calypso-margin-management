@@ -13,7 +13,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { createServer as createViteServer } from 'vite';
 import { startPostgres } from '../packages/db/pg-container';
-import { migrate } from '../packages/db/index';
+import { migrate, seed, sql } from '../packages/db/index';
 import { createProxy } from '../apps/web/vite.config';
 
 const REPO_ROOT = join(import.meta.dir, '..');
@@ -32,6 +32,10 @@ async function main() {
   // 2. Run migrations
   await migrate({ databaseUrl: pg.url });
   console.log('  Schema migrated.');
+
+  // 3. Seed demo data
+  await seed(sql, { databaseUrl: pg.url });
+  console.log('  Demo data seeded.');
 
   // 3. Spawn API server subprocess with DATABASE_URL set
   const apiServer = Bun.spawn(['bun', 'run', '--hot', 'src/index.ts'], {

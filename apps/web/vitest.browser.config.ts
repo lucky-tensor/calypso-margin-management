@@ -35,6 +35,9 @@ function writeFixtureStore(store: FixtureStore) {
 export default defineConfig({
   plugins: [react()],
   root: new URL('.', import.meta.url).pathname,
+  define: {
+    'import.meta.env.VITE_DEMO_MODE': JSON.stringify('true'),
+  },
   server: {
     proxy: {
       '/api': `http://127.0.0.1:${FIXTURE_PORT}`,
