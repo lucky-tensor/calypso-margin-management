@@ -34,7 +34,6 @@ export function targetMarginPricePerEach(product: Product): string {
 }
 
 interface OrderForm {
-  customer: string;
   productId: string;
   quantity: string;
   uom: UnitOfMeasure;
@@ -43,7 +42,6 @@ interface OrderForm {
 }
 
 const EMPTY_FORM: OrderForm = {
-  customer: '',
   productId: '',
   quantity: '',
   uom: 'square_foot',
@@ -73,15 +71,21 @@ function formatNumber(value: number, decimals = 2): string {
 
 interface SearchByUoMPanelProps {
   products: Product[];
+  customer: string;
+  onCustomerChange: (v: string) => void;
   onNavigateToHistory?: () => void;
 }
 
-function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelProps) {
+function SearchByUoMPanel({
+  products,
+  customer,
+  onCustomerChange,
+  onNavigateToHistory,
+}: SearchByUoMPanelProps) {
   const [toggle, setToggle] = useState<SearchUomToggle>('linft');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
   const [sqft, setSqft] = useState('');
-  const [customer, setCustomer] = useState('');
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
   const [creating, setCreating] = useState(false);
 
@@ -185,7 +189,7 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
           id="search-customer"
           type="text"
           value={customer}
-          onChange={(e) => setCustomer(e.target.value)}
+          onChange={(e) => onCustomerChange(e.target.value)}
           placeholder="Customer name"
           className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
         />
@@ -213,7 +217,7 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
               : 'text-zinc-600 hover:text-zinc-900'
           }`}
         >
-          Sqft
+          Sq ft
         </button>
       </div>
 
@@ -329,6 +333,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
   const [productError, setProductError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<OrderMode>('specific-product');
+  const [customer, setCustomer] = useState('');
 
   // Tracks whether the current product selection came from "Select for Quote".
   // When true, skip the auto-seed of sell price so the quoted price is preserved.
@@ -460,7 +465,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          customer: form.customer.trim(),
+          customer: customer.trim(),
           product_id: form.productId,
           quantity: qty,
           unit_of_measure: form.uom,
@@ -476,6 +481,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
       }
 
       setSuccessMessage('Order confirmed successfully!');
+      setCustomer('');
       setForm({ ...EMPTY_FORM });
     } catch {
       setSubmitError('Network error submitting order');
@@ -542,7 +548,12 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
           </div>
 
           {mode === 'search-by-uom' && (
-            <SearchByUoMPanel products={products} onNavigateToHistory={onNavigateToHistory} />
+            <SearchByUoMPanel
+              products={products}
+              customer={customer}
+              onCustomerChange={setCustomer}
+              onNavigateToHistory={onNavigateToHistory}
+            />
           )}
 
           {mode === 'specific-product' && (
@@ -560,8 +571,8 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
                     <input
                       id="field-customer"
                       type="text"
-                      value={form.customer}
-                      onChange={(e) => handleChange('customer', e.target.value)}
+                      value={customer}
+                      onChange={(e) => setCustomer(e.target.value)}
                       placeholder="Customer name"
                       tabIndex={1}
                       className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
@@ -639,7 +650,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
                       htmlFor="field-sell-price"
                       className="block text-sm font-medium text-zinc-700 mb-1"
                     >
-                      Sell price per each ($)
+                      Sell price per roll ($)
                     </label>
                     <input
                       id="field-sell-price"

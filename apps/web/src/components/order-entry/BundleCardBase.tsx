@@ -133,7 +133,13 @@ export function BundleCardBase({
               ? overage / (items[0].product.properties.width_inches / 12)
               : overage;
           const rounded = Math.round(overageLinft * 10) / 10;
-          return rounded <= 0 ? 'no waste' : `${formatNumber(rounded, 1)} ft overage`;
+          const totalDeliveredFt = items.reduce(
+            (sum, item) => sum + item.quantity * (item.product.properties.length_inches / 12),
+            0,
+          );
+          return rounded <= 0
+            ? `${totalDeliveredFt} ft delivered — no waste`
+            : `${totalDeliveredFt} ft delivered — ${formatNumber(rounded, 1)} ft overage`;
         })()
       : (() => {
           const rounded = Math.round(overage * 10) / 10;
@@ -158,6 +164,11 @@ export function BundleCardBase({
             </span>
           )}
         </div>
+      )}
+      {(isBestMargin || isLeastWaste) && (
+        <p className="text-xs text-zinc-400">
+          Best Margin = lowest cost bundle · Least Waste = least overage
+        </p>
       )}
 
       {/* Item rows */}
