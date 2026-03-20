@@ -15,6 +15,7 @@ import type {
   InventoryTxnProperties,
   EntityType,
 } from './types';
+import type { StockPosition } from './inventory';
 
 describe('Role type', () => {
   it('Role accepts valid values', () => {
@@ -103,6 +104,19 @@ describe('domain types', () => {
   });
 
   it('OrderProperties has all required fields including audit and snapshot', () => {
+    const stockSnap: StockPosition = {
+      qty_on_hand: 100,
+      committed_qty: 0,
+      pending_qty: 0,
+      net_available: 100,
+      effective_available: 100,
+      status: 'healthy',
+      reorder_point: 30,
+      safety_stock: 10,
+      reorder_qty: 50,
+      lead_time_days: 7,
+      days_of_stock: null,
+    };
     const order: OrderProperties = {
       customer: 'Acme Fencing Co',
       product_id: 'prod-1',
@@ -121,6 +135,8 @@ describe('domain types', () => {
       margin_floor: 15,
       status: 'draft',
       notes: '',
+      stock_position_at_creation: stockSnap,
+      stock_warning: null,
       created_by: 'user-1',
       confirmed_by: null,
       confirmed_at: null,
