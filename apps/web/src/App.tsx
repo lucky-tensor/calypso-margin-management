@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import type { Role } from './context/AuthContext';
 import { Login } from './components/Login';
 import { ProductCatalog } from './components/ProductCatalog';
 import { OrderEntry } from './components/OrderEntry';
 import { OrderHistory } from './components/OrderHistory';
-import { User, ShoppingCart, Package, History } from 'lucide-react';
+import { User, ShoppingCart, Package, History, Warehouse } from 'lucide-react';
+
+type ViewId = 'order-entry' | 'products' | 'inventory' | 'history';
+
+interface NavItem {
+  id: ViewId;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  label: string;
+  roles?: Role[];
+}
 
 function App() {
   const { user, logout, loading } = useAuth();
-  const [activeView, setActiveView] = useState<'order-entry' | 'products' | 'history'>(
-    'order-entry',
-  );
+  const [activeView, setActiveView] = useState<ViewId>('order-entry');
 
   if (loading) {
     return (
@@ -24,11 +32,14 @@ function App() {
     return <Login />;
   }
 
-  const navItems = [
-    { id: 'order-entry' as const, icon: ShoppingCart, label: 'Order Entry' },
-    { id: 'products' as const, icon: Package, label: 'Products' },
-    { id: 'history' as const, icon: History, label: 'History' },
+  const allNavItems: NavItem[] = [
+    { id: 'order-entry', icon: ShoppingCart, label: 'Order Entry' },
+    { id: 'products', icon: Package, label: 'Products' },
+    { id: 'inventory', icon: Warehouse, label: 'Inventory', roles: ['inventory_manager', 'admin'] },
+    { id: 'history', icon: History, label: 'History' },
   ];
+
+  const navItems = allNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
 
   return (
     <div className="flex h-screen w-full bg-zinc-50 font-sans overflow-hidden text-zinc-900">
@@ -86,6 +97,9 @@ function App() {
             <OrderEntry onNavigateToHistory={() => setActiveView('history')} />
           )}
           {activeView === 'products' && <ProductCatalog />}
+          {activeView === 'inventory' && (
+            <div className="text-sm text-zinc-500">Inventory management coming soon.</div>
+          )}
           {activeView === 'history' && <OrderHistory />}
         </div>
       </main>

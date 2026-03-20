@@ -3,6 +3,7 @@ import { render } from 'vitest-browser-react';
 import { commands, page } from '@vitest/browser/context';
 import React from 'react';
 import { ProductCatalog } from '../../src/components/ProductCatalog';
+import { AuthProvider } from '../../src/context/AuthContext';
 import type { Product } from 'core';
 
 const fixtureProducts: Product[] = [
@@ -57,10 +58,14 @@ describe('ProductCatalog', () => {
 
   test('displays products in a table', async () => {
     await commands.setFixtureState({
-      state: { products: fixtureProducts },
+      state: { products: fixtureProducts, currentRole: 'inventory_manager' },
     });
 
-    const screen = render(<ProductCatalog />);
+    const screen = render(
+      <AuthProvider>
+        <ProductCatalog />
+      </AuthProvider>,
+    );
 
     // Wait for the table to render
     await expect.element(screen.getByText('TS-5050')).toBeVisible();
@@ -77,20 +82,28 @@ describe('ProductCatalog', () => {
 
   test('shows empty state when no products', async () => {
     await commands.setFixtureState({
-      state: { products: [] },
+      state: { products: [], currentRole: 'inventory_manager' },
     });
 
-    const screen = render(<ProductCatalog />);
+    const screen = render(
+      <AuthProvider>
+        <ProductCatalog />
+      </AuthProvider>,
+    );
 
     await expect.element(screen.getByText(/No products yet/)).toBeVisible();
   });
 
   test('opens add modal and submits product', async () => {
     await commands.setFixtureState({
-      state: { products: [] },
+      state: { products: [], currentRole: 'inventory_manager' },
     });
 
-    const screen = render(<ProductCatalog />);
+    const screen = render(
+      <AuthProvider>
+        <ProductCatalog />
+      </AuthProvider>,
+    );
 
     // Wait for empty state, then click add
     await expect.element(screen.getByText(/No products yet/)).toBeVisible();
@@ -125,10 +138,14 @@ describe('ProductCatalog', () => {
 
   test('shows validation errors for missing required fields', async () => {
     await commands.setFixtureState({
-      state: { products: [] },
+      state: { products: [], currentRole: 'inventory_manager' },
     });
 
-    const screen = render(<ProductCatalog />);
+    const screen = render(
+      <AuthProvider>
+        <ProductCatalog />
+      </AuthProvider>,
+    );
 
     await expect.element(screen.getByText(/No products yet/)).toBeVisible();
 
@@ -144,10 +161,14 @@ describe('ProductCatalog', () => {
 
   test('edit button opens modal pre-filled with product data', async () => {
     await commands.setFixtureState({
-      state: { products: [fixtureProducts[0]] },
+      state: { products: [fixtureProducts[0]], currentRole: 'inventory_manager' },
     });
 
-    const screen = render(<ProductCatalog />);
+    const screen = render(
+      <AuthProvider>
+        <ProductCatalog />
+      </AuthProvider>,
+    );
 
     // Wait for table to render
     await expect.element(screen.getByText('TS-5050')).toBeVisible();

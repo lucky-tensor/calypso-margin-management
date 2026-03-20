@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Product, ProductProperties, CostBasis } from 'core';
 import { Plus, Pencil, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const COST_BASIS_OPTIONS: { value: CostBasis; label: string }[] = [
   { value: 'each', label: 'Each' },
@@ -382,6 +383,8 @@ function ProductModal({
 }
 
 export const ProductCatalog: React.FC = () => {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'inventory_manager' || user?.role === 'admin';
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -444,13 +447,15 @@ export const ProductCatalog: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-zinc-900">Product Catalog</h2>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
-        >
-          <Plus size={16} />
-          Add Product
-        </button>
+        {canEdit && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
+          >
+            <Plus size={16} />
+            Add Product
+          </button>
+        )}
       </div>
 
       {products.length === 0 ? (
@@ -495,13 +500,15 @@ export const ProductCatalog: React.FC = () => {
                     <td className="px-4 py-3 text-right text-zinc-600">{p.margin_target}%</td>
                     <td className="px-4 py-3 text-right text-zinc-600">{p.margin_floor}%</td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => openEdit(product)}
-                        className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil size={14} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => openEdit(product)}
+                          className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
