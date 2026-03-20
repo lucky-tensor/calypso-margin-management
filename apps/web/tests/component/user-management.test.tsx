@@ -7,13 +7,13 @@ import { AuthProvider } from '../../src/context/AuthContext';
 import { UsersView } from '../../src/components/UsersView';
 
 const SAMPLE_USERS = [
-  { id: 'user-1', username: 'alice', role: 'admin' as const, display_name: 'Alice Admin' },
-  { id: 'user-2', username: 'bob', role: 'sales_rep' as const, display_name: 'Bob Sales' },
+  { id: 'user-1', username: 'alice', role: 'admin' as const, display_name: 'Admin User' },
+  { id: 'user-2', username: 'bob', role: 'sales_rep' as const, display_name: 'Sales User' },
   {
     id: 'user-3',
     username: 'carol',
     role: 'inventory_manager' as const,
-    display_name: 'Carol Inv',
+    display_name: 'Inventory User',
   },
 ];
 
@@ -88,10 +88,10 @@ describe('Users view table', () => {
     await expect.element(screen.getByText('Display Name')).toBeVisible();
     await expect.element(screen.getByText('Role')).toBeVisible();
 
-    // Users should be listed
-    await expect.element(screen.getByText('alice')).toBeVisible();
-    await expect.element(screen.getByText('bob')).toBeVisible();
-    await expect.element(screen.getByText('carol')).toBeVisible();
+    // Users should be listed (exact match to avoid substring conflicts with display names)
+    await expect.element(screen.getByText('alice', { exact: true })).toBeVisible();
+    await expect.element(screen.getByText('bob', { exact: true })).toBeVisible();
+    await expect.element(screen.getByText('carol', { exact: true })).toBeVisible();
   });
 
   test('UsersView table lists all users without password hashes', async () => {
@@ -105,10 +105,10 @@ describe('Users view table', () => {
       </AuthProvider>,
     );
 
-    // All users should appear
-    await expect.element(screen.getByText('alice')).toBeVisible();
-    await expect.element(screen.getByText('Bob Sales')).toBeVisible();
-    await expect.element(screen.getByText('Carol Inv')).toBeVisible();
+    // All users should appear (use exact match to avoid ambiguity with display names)
+    await expect.element(screen.getByText('alice', { exact: true })).toBeVisible();
+    await expect.element(screen.getByText('Sales User')).toBeVisible();
+    await expect.element(screen.getByText('Inventory User')).toBeVisible();
 
     // No password hash fields should appear
     await expect.element(screen.getByText('password_hash')).not.toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('Users view role change', () => {
     await commands.setFixtureState({
       state: {
         currentRole: 'admin',
-        users: [{ id: 'user-1', username: 'bob', role: 'sales_rep', display_name: 'Bob Sales' }],
+        users: [{ id: 'user-1', username: 'bob', role: 'sales_rep', display_name: 'Sales User' }],
       },
     });
 
@@ -136,7 +136,7 @@ describe('Users view role change', () => {
     );
 
     // Wait for table to load
-    await expect.element(screen.getByText('bob')).toBeVisible();
+    await expect.element(screen.getByText('bob', { exact: true })).toBeVisible();
 
     // Bob should have sales_rep role
     await expect.element(screen.getByText('Sales Rep')).toBeVisible();
