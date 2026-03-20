@@ -14,12 +14,6 @@ import type { Product } from 'core';
 //   B: ceil(100/10) = 10 rolls, cost = 10*$40 = $400
 //
 // Seeded sell price (target margin 25%): A = $10/0.75 = $13.34, B = $40/0.75 = $53.34
-//
-// Cost/sqft: A = $100/400 = $0.25, B = $400/400 = $1.00
-// Customer seeded $/sqft: A = 10*$13.34/400 = $0.334, B = 10*$53.34/400 = $1.334
-//
-// Both orders are A < B.
-// To invert: set A's price high and B's price low.
 
 const productA: Product = {
   id: 'prod-a',
@@ -66,6 +60,28 @@ async function switchToSearchByUoM(screen: ReturnType<typeof render>) {
   await screen.getByRole('button', { name: 'Search by UoM' }).click();
 }
 
+/** Wait for bundles to render by checking that at least one sell price input for Alpha exists. */
+async function waitForBundles() {
+  // Poll until we find at least one spinbutton for Alpha Mesh
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const inputs = await page.getByRole('spinbutton', { name: 'Sell price for Alpha Mesh' }).all();
+    if (inputs.length > 0) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error('Timed out waiting for bundle cards');
+}
+
+/** Fill ALL sell price inputs for a given product name with the given value. */
+async function fillAllPrices(productName: string, value: string) {
+  const inputs = await page
+    .getByRole('spinbutton', { name: `Sell price for ${productName}` })
+    .all();
+  for (const input of inputs) {
+    await input.fill(value);
+  }
+}
+
 /**
  * Gets the visual order of the first occurrence of the given SKUs on the page.
  */
@@ -88,20 +104,13 @@ describe('Sort by sell price (#55)', () => {
   });
 
   test('with sell prices entered, sort by Price/sqft uses customer sell $/sqft', async () => {
-    // With 2 same-width products, engine produces: single-A, single-B, combo A+B bundles.
-    // Each bundle card has its own sell price inputs seeded at target margin.
+    // Engine produces: single-A, single-B, and combo A+B bundles.
+    // Each bundle card has independently seeded prices.
     //
-    // Single-A bundle: 10 rolls Alpha, seeded $/each = $13.34
-    //   customer $/sqft = (10 * $13.34) / 400 = $0.334
-    // Single-B bundle: 10 rolls Beta, seeded $/each = $53.34
-    //   customer $/sqft = (10 * $53.34) / 400 = $1.334
-    //
-    // Default sort by customer $/sqft → A first.
-    //
-    // Now invert: set Alpha to $200/each, Beta to $45/each on ALL inputs.
-    //   A: (10 * $200) / 400 = $5.00/sqft
-    //   B: (10 * $45) / 400 = $1.125/sqft
-    //   → B first.
+    // We set ALL Alpha inputs to $200/each and ALL Beta inputs to $45/each.
+    // Single-A: 10*$200/400sqft = $5.00/sqft
+    // Single-B: 10*$45/400sqft = $1.125/sqft
+    // → B appears before A in ascending sort.
     await commands.setFixtureState({ state: { products: PRODUCTS } });
 
     const screen = render(<OrderEntry />);
@@ -109,28 +118,19 @@ describe('Sort by sell price (#55)', () => {
 
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('100');
+    await waitForBundles();
 
-    // Wait for bundle cards
-    await expect.element(screen.getByText('SKU-ALPHA').first()).toBeVisible();
-    await expect.element(screen.getByText('SKU-BETA').first()).toBeVisible();
-
-    // Verify sort button says "Price/sqft" (since prices are seeded)
+    // Sort button should say "Price/sqft" (sell prices are seeded)
     await expect.element(screen.getByRole('button', { name: /Price\/sqft/ })).toBeVisible();
 
-    // Change ALL Alpha inputs to $200 and ALL Beta inputs to $45
-    const alphaInputs = await screen.getByLabelText('Sell price for Alpha Mesh').all();
-    for (const input of alphaInputs) {
-      await input.fill('200');
-    }
-    const betaInputs = await screen.getByLabelText('Sell price for Beta Mesh').all();
-    for (const input of betaInputs) {
-      await input.fill('45');
-    }
+    // Set custom sell prices on ALL inputs
+    await fillAllPrices('Alpha Mesh', '200');
+    await fillAllPrices('Beta Mesh', '45');
 
-    // Click sort by Price/sqft
+    // Trigger sort
     await screen.getByRole('button', { name: /Price\/sqft/ }).click();
 
-    // B should now be first (lower customer $/sqft)
+    // B ($1.125/sqft) < A ($5.00/sqft)
     const order = await getFirstSKUOrder(['SKU-ALPHA', 'SKU-BETA']);
     expect(order).toEqual(['SKU-BETA', 'SKU-ALPHA']);
   });
@@ -143,20 +143,13 @@ describe('Sort by sell price (#55)', () => {
 
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('100');
+    await waitForBundles();
 
-    await expect.element(screen.getByText('SKU-ALPHA').first()).toBeVisible();
+    // Clear ALL sell prices
+    await fillAllPrices('Alpha Mesh', '');
+    await fillAllPrices('Beta Mesh', '');
 
-    // Clear ALL sell price inputs to trigger cost-based fallback
-    const alphaInputs = await screen.getByLabelText('Sell price for Alpha Mesh').all();
-    for (const input of alphaInputs) {
-      await input.fill('');
-    }
-    const betaInputs = await screen.getByLabelText('Sell price for Beta Mesh').all();
-    for (const input of betaInputs) {
-      await input.fill('');
-    }
-
-    // Sort label should show "Cost/sqft (est.)"
+    // Labels should switch to cost-based indication
     await expect
       .element(screen.getByRole('button', { name: /Cost\/sqft \(est\.\)/ }))
       .toBeVisible();
@@ -167,7 +160,7 @@ describe('Sort by sell price (#55)', () => {
     // Click cost-based sort
     await screen.getByRole('button', { name: /Cost\/sqft \(est\.\)/ }).click();
 
-    // Cost/sqft: A ($0.25) < B ($1.00) → Alpha first
+    // Cost/sqft: A ($0.25) < B ($1.00)
     const order = await getFirstSKUOrder(['SKU-ALPHA', 'SKU-BETA']);
     expect(order).toEqual(['SKU-ALPHA', 'SKU-BETA']);
   });
@@ -180,21 +173,16 @@ describe('Sort by sell price (#55)', () => {
 
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('100');
+    await waitForBundles();
 
-    await expect.element(screen.getByText('SKU-ALPHA').first()).toBeVisible();
-
-    // Initially seeded: A $/sqft < B $/sqft → A first
+    // Seeded: A $/sqft ($0.334) < B $/sqft ($1.334) → A first
     await screen.getByRole('button', { name: /Price\/sqft/ }).click();
     let order = await getFirstSKUOrder(['SKU-ALPHA', 'SKU-BETA']);
     expect(order).toEqual(['SKU-ALPHA', 'SKU-BETA']);
 
-    // Change all Alpha prices to $200 to push A above B
-    const alphaInputs = await screen.getByLabelText('Sell price for Alpha Mesh').all();
-    for (const input of alphaInputs) {
-      await input.fill('200');
-    }
+    // Change all Alpha prices to $200 → A = $5.00/sqft, B seeded = $1.334/sqft → B first
+    await fillAllPrices('Alpha Mesh', '200');
 
-    // Sort should re-compute: B should now be first
     order = await getFirstSKUOrder(['SKU-ALPHA', 'SKU-BETA']);
     expect(order).toEqual(['SKU-BETA', 'SKU-ALPHA']);
   });
