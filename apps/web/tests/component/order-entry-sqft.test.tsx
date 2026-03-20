@@ -270,29 +270,20 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     expect(meshC.length).toBeGreaterThan(0);
   });
 
-  test('Create Orders on a 2-item bundle creates 2 draft orders via API and navigates to history', async () => {
+  test('Confirm Orders on a multi-item bundle creates orders via API and shows success banner', async () => {
     // Use two products that will produce a multi-product bundle
     // productA: 40 sqft/roll, productB: 20 sqft/roll
     // For 50 sqft, single-product: A needs ceil(50/40)=2 rolls (80 sqft, 30 overage)
     //                               B needs ceil(50/20)=3 rolls (60 sqft, 10 overage)
     // Multi-product: 1 A (40 sqft) + 1 B (20 sqft) = 60 sqft, 10 overage — same as B alone
-    // We'll find one of these combos in the results
     await commands.setFixtureState({ state: { products: [productA, productB] } });
 
-    let navigatedToHistory = false;
-    const screen = render(
-      <OrderEntry
-        onNavigateToHistory={() => {
-          navigatedToHistory = true;
-        }}
-      />,
-    );
+    const screen = render(<OrderEntry />);
     await switchToSearchByUoMSqft(screen);
 
     await screen.getByLabelText('Customer').fill('Test Customer');
     await screen.getByLabelText('Total Area (sqft)').fill('50');
 
-    // Find all Create Orders buttons — one of the bundle cards should be a multi-product bundle
     // Fill in sell prices for both products where they appear
     const priceInputsA = await page
       .getByRole('spinbutton', { name: 'Sell price for 4x4 Welded Wire Mesh' })
@@ -301,7 +292,6 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
       .getByRole('spinbutton', { name: 'Sell price for 2x4 Welded Wire Mesh' })
       .all();
 
-    // Fill sell prices for all instances
     for (const input of priceInputsA) {
       await input.fill('50');
     }
@@ -309,15 +299,20 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
       await input.fill('30');
     }
 
-    // Click Create Orders on the last card (multi-product combo) — there should be multiple
-    const createButtons = await page.getByRole('button', { name: 'Create Orders' }).all();
-    expect(createButtons.length).toBeGreaterThan(0);
+    // Click Confirm Orders on the last card (multi-product combo)
+    const confirmButtons = await page.getByRole('button', { name: /Confirm Order/ }).all();
+    expect(confirmButtons.length).toBeGreaterThan(0);
 
-    // Click the last Create Orders button (most likely the multi-product combo)
-    await createButtons[createButtons.length - 1].click();
+    await confirmButtons[confirmButtons.length - 1].click();
 
-    // Wait for navigation
-    await expect.poll(() => navigatedToHistory).toBeTruthy();
+    // Review step should appear — click Confirm (exact match to avoid matching "Confirm Order/Orders")
+    await expect
+      .element(screen.getByRole('button', { name: 'Confirm', exact: true }))
+      .toBeVisible();
+    await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
+
+    // Success banner should appear
+    await expect.element(screen.getByText(/Order confirmed!/), { timeout: 5000 }).toBeVisible();
 
     // Verify orders were created
     const state = (await commands.getFixtureState()) as {

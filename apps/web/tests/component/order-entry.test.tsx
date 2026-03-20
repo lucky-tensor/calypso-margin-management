@@ -275,11 +275,11 @@ describe('OrderEntry — Specific Product mode', () => {
 
     await screen.getByRole('button', { name: 'Confirm Order' }).click();
 
-    // Should show success message
-    await expect.element(screen.getByText(/Order confirmed successfully/)).toBeVisible();
-
-    // Form should reset — customer field should be empty
-    await expect.element(screen.getByLabelText('Customer')).toHaveValue('');
+    // Should show unified success banner
+    await expect.element(screen.getByText(/Order confirmed!/)).toBeVisible();
+    // "New Order" and "View Orders" buttons should appear
+    await expect.element(screen.getByRole('button', { name: 'New Order' })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'View Orders' })).toBeVisible();
   });
 
   test('tab order navigates through fields correctly', async () => {

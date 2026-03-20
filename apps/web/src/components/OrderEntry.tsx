@@ -34,7 +34,6 @@ export function targetMarginPricePerEach(product: Product): string {
 }
 
 interface OrderForm {
-  customer: string;
   productId: string;
   quantity: string;
   uom: UnitOfMeasure;
@@ -43,7 +42,6 @@ interface OrderForm {
 }
 
 const EMPTY_FORM: OrderForm = {
-  customer: '',
   productId: '',
   quantity: '',
   uom: 'square_foot',
@@ -73,15 +71,21 @@ function formatNumber(value: number, decimals = 2): string {
 
 interface SearchByUoMPanelProps {
   products: Product[];
-  onNavigateToHistory?: () => void;
+  customer: string;
+  onOrderSuccess: () => void;
+  onOrderError: (msg: string) => void;
 }
 
-function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelProps) {
+function SearchByUoMPanel({
+  products,
+  customer,
+  onOrderSuccess,
+  onOrderError,
+}: SearchByUoMPanelProps) {
   const [toggle, setToggle] = useState<SearchUomToggle>('linft');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
   const [sqft, setSqft] = useState('');
-  const [customer, setCustomer] = useState('');
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
   const [creating, setCreating] = useState(false);
 
@@ -153,11 +157,9 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
           throw new Error(data.error || 'Failed to create order');
         }
       }
-      if (onNavigateToHistory) {
-        onNavigateToHistory();
-      }
-    } catch {
-      // Error handling — could show an error state
+      onOrderSuccess();
+    } catch (err) {
+      onOrderError(err instanceof Error ? err.message : 'Failed to create order');
     } finally {
       setCreating(false);
     }
@@ -176,21 +178,6 @@ function SearchByUoMPanel({ products, onNavigateToHistory }: SearchByUoMPanelPro
 
   return (
     <div className="space-y-4">
-      {/* Customer field */}
-      <div>
-        <label htmlFor="search-customer" className="block text-sm font-medium text-zinc-700 mb-1">
-          Customer
-        </label>
-        <input
-          id="search-customer"
-          type="text"
-          value={customer}
-          onChange={(e) => setCustomer(e.target.value)}
-          placeholder="Customer name"
-          className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-        />
-      </div>
-
       {/* Toggle: Linear ft | Sqft */}
       <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
         <button
@@ -330,14 +317,19 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
 
   const [mode, setMode] = useState<OrderMode>('specific-product');
 
+  // Shared customer field — persists across mode switches
+  const [customer, setCustomer] = useState('');
+
+  // Unified success/error state
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
+
   // Tracks whether the current product selection came from "Select for Quote".
   // When true, skip the auto-seed of sell price so the quoted price is preserved.
   const skipSellPriceSeedRef = useRef(false);
 
   const [form, setForm] = useState<OrderForm>({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
@@ -421,7 +413,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
   const handleChange = <K extends keyof OrderForm>(field: K, value: OrderForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSubmitError(null);
-    setSuccessMessage(null);
+    setOrderConfirmed(false);
   };
 
   const handleRoundUp = () => {
@@ -446,12 +438,19 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
     handleChange('quantity', roundedQty.toString());
   };
 
+  const handleNewOrder = () => {
+    setOrderConfirmed(false);
+    setSubmitError(null);
+    setCustomer('');
+    setForm({ ...EMPTY_FORM });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
 
     setSubmitError(null);
-    setSuccessMessage(null);
+    setOrderConfirmed(false);
     setSubmitting(true);
 
     try {
@@ -460,7 +459,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          customer: form.customer.trim(),
+          customer: customer.trim(),
           product_id: form.productId,
           quantity: qty,
           unit_of_measure: form.uom,
@@ -475,13 +474,23 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
         return;
       }
 
-      setSuccessMessage('Order confirmed successfully!');
+      setOrderConfirmed(true);
       setForm({ ...EMPTY_FORM });
     } catch {
       setSubmitError('Network error submitting order');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleBundleOrderSuccess = () => {
+    setOrderConfirmed(true);
+    setSubmitError(null);
+  };
+
+  const handleBundleOrderError = (msg: string) => {
+    setSubmitError(msg);
+    setOrderConfirmed(false);
   };
 
   return (
@@ -511,17 +520,58 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
 
       {!loadingProducts && !productError && products.length > 0 && (
         <>
-          {successMessage && (
+          {/* Unified success banner */}
+          {orderConfirmed && (
             <div className="mb-4 bg-emerald-50 border-l-4 border-emerald-500 p-3 rounded text-sm text-emerald-700">
-              {successMessage}
+              <p className="font-medium mb-2">Order confirmed!</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleNewOrder}
+                  className="px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-md transition-colors"
+                >
+                  New Order
+                </button>
+                <button
+                  type="button"
+                  onClick={onNavigateToHistory}
+                  className="px-3 py-1 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-md transition-colors"
+                >
+                  View Orders
+                </button>
+              </div>
             </div>
           )}
 
+          {/* Unified error banner */}
           {submitError && (
             <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-3 rounded text-sm text-red-700">
               {submitError}
             </div>
           )}
+
+          {/* Shared Customer field */}
+          <div className="mb-4">
+            <label
+              htmlFor="field-customer"
+              className="block text-sm font-medium text-zinc-700 mb-1"
+            >
+              Customer
+            </label>
+            <input
+              id="field-customer"
+              type="text"
+              value={customer}
+              onChange={(e) => {
+                setCustomer(e.target.value);
+                setSubmitError(null);
+                setOrderConfirmed(false);
+              }}
+              placeholder="Customer name"
+              tabIndex={1}
+              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+            />
+          </div>
 
           {/* Mode selector */}
           <div className="flex gap-1 mb-6 bg-zinc-100 rounded-lg p-1 w-fit">
@@ -542,7 +592,12 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
           </div>
 
           {mode === 'search-by-uom' && (
-            <SearchByUoMPanel products={products} onNavigateToHistory={onNavigateToHistory} />
+            <SearchByUoMPanel
+              products={products}
+              customer={customer}
+              onOrderSuccess={handleBundleOrderSuccess}
+              onOrderError={handleBundleOrderError}
+            />
           )}
 
           {mode === 'specific-product' && (
@@ -550,24 +605,6 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
               <div className="grid grid-cols-2 gap-6">
                 {/* Left column: inputs */}
                 <div className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="field-customer"
-                      className="block text-sm font-medium text-zinc-700 mb-1"
-                    >
-                      Customer
-                    </label>
-                    <input
-                      id="field-customer"
-                      type="text"
-                      value={form.customer}
-                      onChange={(e) => handleChange('customer', e.target.value)}
-                      placeholder="Customer name"
-                      tabIndex={1}
-                      className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-                    />
-                  </div>
-
                   <div>
                     <label
                       htmlFor="field-product"

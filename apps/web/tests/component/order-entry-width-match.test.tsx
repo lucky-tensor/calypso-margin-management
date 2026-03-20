@@ -262,17 +262,10 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     expect(mesh2Texts.length).toBeGreaterThan(0);
   });
 
-  test('Create Orders on single-item bundle creates 1 draft order and navigates to history', async () => {
+  test('Confirm Order on single-item bundle creates 1 draft order and shows success banner', async () => {
     await commands.setFixtureState({ state: { products: [product48a] } });
 
-    let navigatedToHistory = false;
-    const screen = render(
-      <OrderEntry
-        onNavigateToHistory={() => {
-          navigatedToHistory = true;
-        }}
-      />,
-    );
+    const screen = render(<OrderEntry />);
     await switchToSearchByUoM(screen);
 
     await screen.getByLabelText('Customer').fill('Acme Fencing Co');
@@ -280,10 +273,14 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await screen.getByLabelText('Total Length (ft)').fill('200');
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
-    await screen.getByRole('button', { name: 'Create Orders' }).click();
+    await screen.getByRole('button', { name: 'Confirm Order' }).click();
 
-    // Wait for navigation callback
-    await expect.poll(() => navigatedToHistory).toBeTruthy();
+    // Confirmation step: click Confirm to proceed
+    await expect.element(screen.getByRole('button', { name: 'Confirm' })).toBeVisible();
+    await screen.getByRole('button', { name: 'Confirm' }).click();
+
+    // Success banner should appear
+    await expect.element(screen.getByText(/Order confirmed!/)).toBeVisible();
 
     // Verify order was created in fixture state
     const state = (await commands.getFixtureState()) as {
