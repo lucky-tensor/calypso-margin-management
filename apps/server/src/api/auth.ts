@@ -29,14 +29,19 @@ export function getCorsHeaders(req: Request): Record<string, string> {
 // Helper to verify auth from a Request object
 export async function getAuthenticatedUser(
   req: Request,
-): Promise<{ id: string; username: string; role: Role } | null> {
+): Promise<{ id: string; username: string; role: Role; display_name: string } | null> {
   const cookies = parseCookies(req.headers.get('Cookie'));
   const token = cookies['meshmargin_auth'];
 
   if (!token) return null;
 
   try {
-    const payload = await verifyJwt<{ id: string; username: string; role: Role }>(token);
+    const payload = await verifyJwt<{
+      id: string;
+      username: string;
+      role: Role;
+      display_name: string;
+    }>(token);
     return payload;
   } catch {
     return null;
@@ -91,7 +96,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
   // 1. POST /api/auth/register
   if (req.method === 'POST' && url.pathname === '/api/auth/register') {
     try {
-      const { username, password } = await req.json();
+      const { username, password, display_name: rawDisplayName } = await req.json();
       if (!username || !password || password.length < 6) {
         return new Response(JSON.stringify({ error: 'Invalid username or password' }), {
           status: 400,
@@ -101,7 +106,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
 
       // Check if user exists (checking JSONB property 'username' where type is 'user')
       const existingUser = await sql`
-                SELECT id FROM entities 
+                SELECT id FROM entities
                 WHERE type = 'user' AND properties->>'username' = ${username}
             `;
 
@@ -115,11 +120,16 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
       const id = crypto.randomUUID();
       const hash = await Bun.password.hash(password);
       const role: Role = 'sales_rep';
+      const display_name: string =
+        typeof rawDisplayName === 'string' && rawDisplayName.trim() !== ''
+          ? rawDisplayName.trim()
+          : username;
 
       const properties = {
         username,
         password_hash: hash,
         role,
+        display_name,
       };
 
       await sql`
@@ -127,9 +137,9 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
                 VALUES (${id}, 'user', ${sql.json(properties)}, null)
             `;
 
-      const token = await signJwt({ id, username, role });
+      const token = await signJwt({ id, username, role, display_name });
 
-      return new Response(JSON.stringify({ user: { id, username, role } }), {
+      return new Response(JSON.stringify({ user: { id, username, role, display_name } }), {
         status: 201,
         headers: {
           ...corsHeaders,
@@ -153,7 +163,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
 
       // Retrieve User Entity
       const users = await sql`
-                SELECT id, properties->>'username' as username, properties->>'password_hash' as password_hash, properties->>'role' as role
+                SELECT id, properties->>'username' as username, properties->>'password_hash' as password_hash, properties->>'role' as role, properties->>'display_name' as display_name
                 FROM entities
                 WHERE type = 'user' AND properties->>'username' = ${username}
             `;
@@ -176,10 +186,14 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
       }
 
       const role: Role = (user.role as Role) ?? 'sales_rep';
-      const token = await signJwt({ id: user.id, username: user.username, role });
+      const display_name: string =
+        typeof user.display_name === 'string' && user.display_name.trim() !== ''
+          ? user.display_name.trim()
+          : user.username;
+      const token = await signJwt({ id: user.id, username: user.username, role, display_name });
 
       return new Response(
-        JSON.stringify({ user: { id: user.id, username: user.username, role } }),
+        JSON.stringify({ user: { id: user.id, username: user.username, role, display_name } }),
         {
           status: 200,
           headers: {
