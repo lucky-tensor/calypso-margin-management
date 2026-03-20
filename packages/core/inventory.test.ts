@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeStockPosition,
-  checkOrderStock,
-  computeDaysOfStock,
-} from './inventory';
+import { computeStockPosition, checkOrderStock, computeDaysOfStock } from './inventory';
 import type { InventoryProductInput } from './inventory';
 
 // Standard test product with inventory fields

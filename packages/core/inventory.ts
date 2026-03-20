@@ -147,9 +147,7 @@ export function checkOrderStock(
   // Projected position with the new order added as a draft
   const projectedDraftQty = draftQty + newOrderQty;
   const projected_effective =
-    product.qty_on_hand -
-    confirmedQty -
-    projectedDraftQty * product.pending_order_weight;
+    product.qty_on_hand - confirmedQty - projectedDraftQty * product.pending_order_weight;
   const projected_status = evaluateStockStatus(
     projected_effective,
     product.reorder_point,
