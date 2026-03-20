@@ -67,8 +67,8 @@ const ghostProduct: Product = {
 };
 
 async function switchToSearchByUoM(screen: ReturnType<typeof render>) {
-  await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
-  await screen.getByRole('button', { name: 'Search by UoM' }).click();
+  await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
+  await screen.getByRole('button', { name: 'Order Optimizer' }).click();
 }
 
 describe('Create Orders — confirmation step and error display', () => {

@@ -52,7 +52,9 @@ export function BundleCardBase({
   itemPrices: externalPrices,
   onItemPriceChange,
 }: BundleCardBaseProps) {
-  const { totalLinft, totalSqft, overage, items } = bundle;
+  const { totalLinft, totalSqft, overage } = bundle;
+  // Filter out zero-quantity items at render time
+  const items = bundle.items.filter((item) => item.quantity > 0);
 
   // Per-item sell prices, keyed by product id (internal state used when no external prices)
   const [internalPrices, setInternalPrices] = useState<Record<string, string>>(() => {
@@ -300,7 +302,7 @@ export function BundleCardBase({
                     <p className="text-xs text-zinc-500">{p.sku}</p>
                     {displayMode === 'sqft' && (
                       <p className="text-xs text-zinc-400">
-                        {p.width_inches}&quot; &times; {p.length_inches}&quot; rolls (
+                        {p.width_inches}&quot; &times; {p.length_inches}&quot; eaches (
                         {rollLengthStr})
                       </p>
                     )}
@@ -329,7 +331,7 @@ export function BundleCardBase({
                 {/* Quantity */}
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   <span className="text-zinc-700">
-                    <span className="font-medium">{item.quantity}</span> rolls
+                    <span className="font-medium">{item.quantity}</span> eaches
                   </span>
                   {displayMode === 'linft' && (
                     <span className="text-zinc-500">

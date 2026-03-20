@@ -80,8 +80,8 @@ const product36: Product = {
 const ALL_PRODUCTS = [product48a, product48b, product36];
 
 async function switchToSearchByUoM(screen: ReturnType<typeof render>) {
-  await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
-  await screen.getByRole('button', { name: 'Search by UoM' }).click();
+  await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
+  await screen.getByRole('button', { name: 'Order Optimizer' }).click();
 }
 
 describe('OrderEntry — Search by UoM / Linear ft mode', () => {
@@ -89,7 +89,7 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await commands.resetFixtureState();
   });
 
-  test('Search by UoM has a Linear ft / Sq ft toggle', async () => {
+  test('Order Optimizer has a Linear ft / Sq ft toggle', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
@@ -157,14 +157,14 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoM(screen);
 
-    // 200 ft / 10 ft per roll = 20 rolls exactly
+    // 200 ft / 10 ft per each = 20 eaches exactly
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
 
     await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
     await expect.element(screen.getByText('WM-48-10FT')).toBeVisible();
-    await expect.element(screen.getByText(/20.*rolls/)).toBeVisible();
-    // 20 rolls * 10 ft = 200 ft delivered — no waste
+    await expect.element(screen.getByText(/20.*eaches/)).toBeVisible();
+    // 20 eaches * 10 ft = 200 ft delivered — no waste
     await expect.element(screen.getByText(/200 ft delivered/)).toBeVisible();
     await expect.element(screen.getByText(/no waste/)).toBeVisible();
   });
@@ -191,7 +191,7 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await switchToSearchByUoM(screen);
 
     // product48a: cost_per_each=32, margin_target=25, margin_floor=15
-    // 200 ft / 10 ft = 20 rolls, cost = 20 * 32 = 640
+    // 200 ft / 10 ft = 20 eaches, cost = 20 * 32 = 640
     // sell price $50/each → revenue = 20 * 50 = 1000
     // margin = (1000 - 640) / 1000 = 36% → healthy (>= 25% target)
     await screen.getByLabelText('Width').selectOptions('48');
@@ -209,7 +209,7 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoM(screen);
 
-    // 20 rolls, cost = 640; sell $38/each → revenue = 760
+    // 20 eaches, cost = 640; sell $38/each → revenue = 760
     // margin = (760 - 640) / 760 = 120/760 ≈ 15.8% → warning
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
@@ -226,7 +226,7 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoM(screen);
 
-    // 20 rolls, cost = 640; sell $36/each → revenue = 720
+    // 20 eaches, cost = 640; sell $36/each → revenue = 720
     // margin = (720 - 640) / 720 ≈ 11.1% → critical
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
@@ -316,7 +316,7 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('200');
 
-    // product48a: 20 rolls * $32 cost = $640 cost; 20 * $50 = $1000 rev -> 36% margin
+    // product48a: 20 eaches * $32 cost = $640 cost; 20 * $50 = $1000 rev -> 36% margin
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
     await expect.element(screen.getByText('36.0%')).toBeVisible();

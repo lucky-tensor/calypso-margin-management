@@ -28,7 +28,7 @@ type SearchUomToggle = 'linft' | 'sqft';
 
 const MODE_TABS: { value: OrderMode; label: string }[] = [
   { value: 'specific-product', label: 'Specific Product' },
-  { value: 'search-by-uom', label: 'Search by UoM' },
+  { value: 'search-by-uom', label: 'Order Optimizer' },
 ];
 
 export function targetMarginPricePerEach(product: Product): string {
@@ -87,12 +87,24 @@ function SearchByUoMPanel({
   onOrderSuccess,
   onOrderError,
 }: SearchByUoMPanelProps) {
+  const { user } = useAuth();
   const [toggle, setToggle] = useState<SearchUomToggle>('linft');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
   const [sqft, setSqft] = useState('');
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
   const [creating, setCreating] = useState(false);
+
+  // Active bundle for right-column analytics (hovered or selected)
+  const [activeBundleKey, setActiveBundleKey] = useState<string | null>(null);
+
+  // Per-product inventory data for the active bundle
+  const [bundleAvailability, setBundleAvailability] = useState<Record<string, AvailabilityData>>(
+    {},
+  );
+  const [bundleStockPositions, setBundleStockPositions] = useState<
+    Record<string, StockPositionData>
+  >({});
 
   // Lifted item prices state: keyed by bundleKey, then by productId
   const [allItemPrices, setAllItemPrices] = useState<Record<string, Record<string, string>>>({});
@@ -124,6 +136,11 @@ function SearchByUoMPanel({
       return findBundlesBySqft(products, totalSqft);
     }
   }, [toggle, products, widthInches, lengthFeet, hasWidth, hasLength, hasSqft, totalSqft]);
+
+  // Filter bundles where every item has quantity === 0
+  const visibleBundles: Bundle[] = useMemo(() => {
+    return rawBundles.filter((bundle) => bundle.items.some((item) => item.quantity > 0));
+  }, [rawBundles]);
 
   // Generate stable bundle keys (same logic used for rendering)
   const bundleKeys = useMemo(() => {
@@ -157,30 +174,33 @@ function SearchByUoMPanel({
 
   // Determine if all bundles have all sell prices entered
   const allSellPricesEntered = useMemo(() => {
-    if (rawBundles.length === 0) return false;
-    for (let idx = 0; idx < rawBundles.length; idx++) {
-      const bKey = bundleKeys[idx];
+    if (visibleBundles.length === 0) return false;
+    for (const bundle of visibleBundles) {
+      const origIdx = rawBundles.indexOf(bundle);
+      const bKey = bundleKeys[origIdx];
       const prices = allItemPrices[bKey];
       if (!prices) return false;
-      for (const item of rawBundles[idx].items) {
+      for (const item of bundle.items) {
+        if (item.quantity === 0) continue;
         const priceStr = prices[item.product.id] ?? '';
         const price = parseFloat(priceStr);
         if (isNaN(price) || price <= 0) return false;
       }
     }
     return true;
-  }, [rawBundles, bundleKeys, allItemPrices]);
+  }, [visibleBundles, rawBundles, bundleKeys, allItemPrices]);
 
-  // Compute customer sell price per sqft/linft for each bundle (when all prices entered)
+  // Compute customer sell price per sqft/linft for each visible bundle (when all prices entered)
   const customerPricesPerBundle = useMemo(() => {
     if (!allSellPricesEntered) return null;
     const result: Array<{ customerPricePerSqft: number; customerPricePerLinft: number }> = [];
-    for (let idx = 0; idx < rawBundles.length; idx++) {
-      const bundle = rawBundles[idx];
-      const bKey = bundleKeys[idx];
+    for (const bundle of visibleBundles) {
+      const origIdx = rawBundles.indexOf(bundle);
+      const bKey = bundleKeys[origIdx];
       const prices = allItemPrices[bKey];
       let totalRevenue = 0;
       for (const item of bundle.items) {
+        if (item.quantity === 0) continue;
         const price = parseFloat(prices[item.product.id] ?? '0');
         totalRevenue += item.quantity * price;
       }
@@ -190,13 +210,13 @@ function SearchByUoMPanel({
       });
     }
     return result;
-  }, [allSellPricesEntered, rawBundles, bundleKeys, allItemPrices]);
+  }, [allSellPricesEntered, visibleBundles, rawBundles, bundleKeys, allItemPrices]);
 
   const sortedBundles: Bundle[] = useMemo(() => {
-    if (rawBundles.length === 0) return rawBundles;
+    if (visibleBundles.length === 0) return visibleBundles;
 
     // Build index array to maintain association with customerPricesPerBundle
-    const indices = rawBundles.map((_, i) => i);
+    const indices = visibleBundles.map((_, i) => i);
 
     if (customerPricesPerBundle) {
       // Sort by customer sell price
@@ -216,14 +236,112 @@ function SearchByUoMPanel({
     } else {
       // Fallback: sort by cost-based price
       if (sortKey === 'price-sqft') {
-        indices.sort((a, b) => rawBundles[a].pricePerSqft - rawBundles[b].pricePerSqft);
+        indices.sort((a, b) => visibleBundles[a].pricePerSqft - visibleBundles[b].pricePerSqft);
       } else {
-        indices.sort((a, b) => rawBundles[a].pricePerLinft - rawBundles[b].pricePerLinft);
+        indices.sort((a, b) => visibleBundles[a].pricePerLinft - visibleBundles[b].pricePerLinft);
       }
     }
 
-    return indices.map((i) => rawBundles[i]);
-  }, [rawBundles, sortKey, customerPricesPerBundle]);
+    return indices.map((i) => visibleBundles[i]);
+  }, [visibleBundles, sortKey, customerPricesPerBundle]);
+
+  // Fetch inventory data for the active bundle's products
+  useEffect(() => {
+    if (!activeBundleKey) return;
+
+    // Find the active bundle
+    const origIdx = rawBundles.findIndex((_, idx) => bundleKeys[idx] === activeBundleKey);
+    if (origIdx === -1) return;
+    const activeBundle = rawBundles[origIdx];
+    const role = user?.role;
+
+    for (const item of activeBundle.items) {
+      if (item.quantity === 0) continue;
+      const productId = item.product.id;
+
+      if (role === 'sales_rep') {
+        fetch(`/api/inventory/${productId}/availability`, { credentials: 'include' })
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json();
+              setBundleAvailability((prev) => ({ ...prev, [productId]: data as AvailabilityData }));
+            }
+          })
+          .catch(() => {});
+      } else if (role === 'inventory_manager' || role === 'admin') {
+        fetch(`/api/inventory/${productId}`, { credentials: 'include' })
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json();
+              setBundleStockPositions((prev) => ({
+                ...prev,
+                [productId]: data as StockPositionData,
+              }));
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [activeBundleKey, rawBundles, bundleKeys, user?.role]);
+
+  // Combined economics for the active bundle (from its card's combinedEconomics logic)
+  const activeBundleEconomics = useMemo(() => {
+    if (!activeBundleKey) return null;
+    const origIdx = rawBundles.findIndex((_, idx) => bundleKeys[idx] === activeBundleKey);
+    if (origIdx === -1) return null;
+    const bundle = rawBundles[origIdx];
+    const prices = allItemPrices[activeBundleKey];
+    if (!prices) return null;
+
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let allPricesEntered = true;
+    let weightedTarget = 0;
+    let weightedFloor = 0;
+
+    for (const item of bundle.items) {
+      if (item.quantity === 0) continue;
+      const priceStr = prices[item.product.id] ?? '';
+      const price = parseFloat(priceStr);
+      if (isNaN(price) || price <= 0) {
+        allPricesEntered = false;
+        continue;
+      }
+      const conversions = convertUnits(item.product, item.quantity, 'each');
+      const itemCost = calculateCost(item.product, conversions);
+      const itemRevenue = item.quantity * price;
+      totalRevenue += itemRevenue;
+      totalCost += itemCost;
+      weightedTarget += item.product.properties.margin_target * itemCost;
+      weightedFloor += item.product.properties.margin_floor * itemCost;
+    }
+
+    if (!allPricesEntered || totalRevenue === 0) return null;
+
+    const { dollars: marginDollars, percent: marginPercent } = calculateMargin(
+      totalRevenue,
+      totalCost,
+    );
+    const avgTarget = totalCost > 0 ? weightedTarget / totalCost : 25;
+    const avgFloor = totalCost > 0 ? weightedFloor / totalCost : 15;
+
+    return {
+      totalRevenue,
+      totalCost,
+      marginDollars,
+      marginPercent,
+      marginTarget: avgTarget,
+      marginFloor: avgFloor,
+    };
+  }, [activeBundleKey, rawBundles, bundleKeys, allItemPrices]);
+
+  // Items in the active bundle (non-zero quantity)
+  const activeBundleItems = useMemo(() => {
+    if (!activeBundleKey) return [];
+    const origIdx = rawBundles.findIndex((_, idx) => bundleKeys[idx] === activeBundleKey);
+    if (origIdx === -1) return [];
+    return rawBundles[origIdx].items.filter((item) => item.quantity > 0);
+  }, [activeBundleKey, rawBundles, bundleKeys]);
 
   const handleCreateOrders = async (
     items: Array<{
@@ -265,151 +383,263 @@ function SearchByUoMPanel({
   // Empty state logic
   const showEmptyState =
     toggle === 'linft'
-      ? hasWidth && hasLength && rawBundles.length === 0
+      ? hasWidth && hasLength && sortedBundles.length === 0
       : hasSqft && products.length === 0;
   const showNoBundles =
-    toggle === 'sqft' && hasSqft && products.length > 0 && rawBundles.length === 0;
+    toggle === 'sqft' && hasSqft && products.length > 0 && sortedBundles.length === 0;
 
   const emptyMessage =
     toggle === 'linft' ? `No products available at ${widthInches}"` : 'No products in catalog';
 
+  const role = user?.role;
+
   return (
-    <div className="space-y-4">
-      {/* Toggle: Linear ft | Sqft */}
-      <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
-        <button
-          type="button"
-          onClick={() => setToggle('linft')}
-          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            toggle === 'linft'
-              ? 'bg-white text-zinc-900 shadow-sm'
-              : 'text-zinc-600 hover:text-zinc-900'
-          }`}
-        >
-          Linear ft
-        </button>
-        <button
-          type="button"
-          onClick={() => setToggle('sqft')}
-          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            toggle === 'sqft'
-              ? 'bg-white text-zinc-900 shadow-sm'
-              : 'text-zinc-600 hover:text-zinc-900'
-          }`}
-        >
-          Sq ft
-        </button>
+    <div className="grid grid-cols-2 gap-6">
+      {/* Left column: search controls and bundle list */}
+      <div className="space-y-4">
+        {/* Toggle: Linear ft | Sqft */}
+        <div className="flex gap-1 bg-zinc-100 rounded-lg p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setToggle('linft')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              toggle === 'linft'
+                ? 'bg-white text-zinc-900 shadow-sm'
+                : 'text-zinc-600 hover:text-zinc-900'
+            }`}
+          >
+            Linear ft
+          </button>
+          <button
+            type="button"
+            onClick={() => setToggle('sqft')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              toggle === 'sqft'
+                ? 'bg-white text-zinc-900 shadow-sm'
+                : 'text-zinc-600 hover:text-zinc-900'
+            }`}
+          >
+            Sq ft
+          </button>
+        </div>
+
+        {/* Inputs */}
+        {toggle === 'linft' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="search-width"
+                className="block text-sm font-medium text-zinc-700 mb-1"
+              >
+                Width
+              </label>
+              <select
+                id="search-width"
+                value={width}
+                onChange={(e) => setWidth(e.target.value)}
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
+              >
+                <option value="">Select width...</option>
+                {distinctWidths.map((w) => (
+                  <option key={w} value={w}>
+                    {w}&quot;
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="search-length"
+                className="block text-sm font-medium text-zinc-700 mb-1"
+              >
+                Total Length (ft)
+              </label>
+              <input
+                id="search-length"
+                type="number"
+                step="any"
+                min="0"
+                value={length}
+                onChange={(e) => setLength(e.target.value)}
+                placeholder="200"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 max-w-xs">
+            <div>
+              <label htmlFor="search-sqft" className="block text-sm font-medium text-zinc-700 mb-1">
+                Total Area (sqft)
+              </label>
+              <input
+                id="search-sqft"
+                type="number"
+                step="any"
+                min="0"
+                value={sqft}
+                onChange={(e) => setSqft(e.target.value)}
+                placeholder="500"
+                className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Empty states */}
+        {(showEmptyState || showNoBundles) && (
+          <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
+            <p className="text-sm text-zinc-500">{emptyMessage}</p>
+          </div>
+        )}
+
+        {/* Bundle list */}
+        {sortedBundles.length > 0 && (
+          <div className="space-y-3">
+            <BundleSortControls
+              sortKey={sortKey}
+              onSortChange={setSortKey}
+              usingSellPrice={allSellPricesEntered}
+            />
+
+            {(() => {
+              const showPills = sortedBundles.length >= 2;
+              const minCostTotal = showPills
+                ? Math.min(...sortedBundles.map((b) => b.costTotal))
+                : Infinity;
+              const minOverage = showPills
+                ? Math.min(...sortedBundles.map((b) => b.overage))
+                : Infinity;
+              return sortedBundles.map((bundle) => {
+                // Find the original index to get the correct bundleKey
+                const origIdx = rawBundles.indexOf(bundle);
+                const bKey = bundleKeys[origIdx];
+                return (
+                  <div
+                    key={bKey}
+                    onClick={(e) => {
+                      // Only select the bundle when clicking the card background, not interactive elements
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.tagName === 'BUTTON' ||
+                        target.tagName === 'INPUT' ||
+                        target.tagName === 'SELECT' ||
+                        target.tagName === 'LABEL' ||
+                        target.closest('button') ||
+                        target.closest('input') ||
+                        target.closest('select')
+                      ) {
+                        return;
+                      }
+                      setActiveBundleKey(bKey);
+                    }}
+                    className={`rounded-lg transition-shadow cursor-pointer ${activeBundleKey === bKey ? 'ring-2 ring-zinc-400' : ''}`}
+                  >
+                    <BundleCardBase
+                      bundleKey={bKey}
+                      bundle={bundle}
+                      displayMode={toggle}
+                      customer={customer}
+                      onCreateOrders={handleCreateOrders}
+                      creating={creating}
+                      isBestMargin={showPills && bundle.costTotal === minCostTotal}
+                      isLeastWaste={showPills && bundle.overage === minOverage}
+                      itemPrices={allItemPrices[bKey]}
+                      onItemPriceChange={(productId, value) => {
+                        setAllItemPrices((prev) => ({
+                          ...prev,
+                          [bKey]: { ...prev[bKey], [productId]: value },
+                        }));
+                      }}
+                    />
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        )}
       </div>
 
-      {/* Inputs */}
-      {toggle === 'linft' ? (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="search-width" className="block text-sm font-medium text-zinc-700 mb-1">
-              Width
-            </label>
-            <select
-              id="search-width"
-              value={width}
-              onChange={(e) => setWidth(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm bg-white"
-            >
-              <option value="">Select width...</option>
-              {distinctWidths.map((w) => (
-                <option key={w} value={w}>
-                  {w}&quot;
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="search-length" className="block text-sm font-medium text-zinc-700 mb-1">
-              Total Length (ft)
-            </label>
-            <input
-              id="search-length"
-              type="number"
-              step="any"
-              min="0"
-              value={length}
-              onChange={(e) => setLength(e.target.value)}
-              placeholder="200"
-              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 max-w-xs">
-          <div>
-            <label htmlFor="search-sqft" className="block text-sm font-medium text-zinc-700 mb-1">
-              Total Area (sqft)
-            </label>
-            <input
-              id="search-sqft"
-              type="number"
-              step="any"
-              min="0"
-              value={sqft}
-              onChange={(e) => setSqft(e.target.value)}
-              placeholder="500"
-              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Empty states */}
-      {(showEmptyState || showNoBundles) && (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-6 text-center">
-          <p className="text-sm text-zinc-500">{emptyMessage}</p>
-        </div>
-      )}
-
-      {/* Bundle list */}
-      {sortedBundles.length > 0 && (
-        <div className="space-y-3">
-          <BundleSortControls
-            sortKey={sortKey}
-            onSortChange={setSortKey}
-            usingSellPrice={allSellPricesEntered}
-          />
-
-          {(() => {
-            const showPills = sortedBundles.length >= 2;
-            const minCostTotal = showPills
-              ? Math.min(...sortedBundles.map((b) => b.costTotal))
-              : Infinity;
-            const minOverage = showPills
-              ? Math.min(...sortedBundles.map((b) => b.overage))
-              : Infinity;
-            return sortedBundles.map((bundle) => {
-              // Find the original index to get the correct bundleKey
-              const origIdx = rawBundles.indexOf(bundle);
-              const bKey = bundleKeys[origIdx];
-              return (
-                <BundleCardBase
-                  key={bKey}
-                  bundleKey={bKey}
-                  bundle={bundle}
-                  displayMode={toggle}
-                  customer={customer}
-                  onCreateOrders={handleCreateOrders}
-                  creating={creating}
-                  isBestMargin={showPills && bundle.costTotal === minCostTotal}
-                  isLeastWaste={showPills && bundle.overage === minOverage}
-                  itemPrices={allItemPrices[bKey]}
-                  onItemPriceChange={(productId, value) => {
-                    setAllItemPrices((prev) => ({
-                      ...prev,
-                      [bKey]: { ...prev[bKey], [productId]: value },
-                    }));
-                  }}
+      {/* Right column: analytics panel */}
+      <div className="space-y-4">
+        {activeBundleKey && activeBundleItems.length > 0 ? (
+          <>
+            {/* Combined economics */}
+            {activeBundleEconomics ? (
+              <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 space-y-2">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                  Bundle Economics
+                </p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600">Revenue</span>
+                  <span className="font-medium text-zinc-900">
+                    {formatCurrency(activeBundleEconomics.totalRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-600">Cost</span>
+                  <span className="font-medium text-zinc-900">
+                    {formatCurrency(activeBundleEconomics.totalCost)}
+                  </span>
+                </div>
+                <MarginBox
+                  marginDollars={activeBundleEconomics.marginDollars}
+                  marginPercent={activeBundleEconomics.marginPercent}
+                  marginTarget={activeBundleEconomics.marginTarget}
+                  marginFloor={activeBundleEconomics.marginFloor}
+                  variant="large"
                 />
-              );
-            });
-          })()}
-        </div>
-      )}
+              </div>
+            ) : (
+              <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                  Bundle Economics
+                </p>
+                <p className="text-sm text-zinc-400">Enter sell prices to see margin analysis.</p>
+              </div>
+            )}
+
+            {/* Per-product inventory stats */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">
+                Inventory by Product
+              </p>
+              {activeBundleItems.map((item) => {
+                const productId = item.product.id;
+                const availability = bundleAvailability[productId] ?? null;
+                const stockPosition = bundleStockPositions[productId] ?? null;
+                return (
+                  <div key={productId}>
+                    <p className="text-xs font-medium text-zinc-700 mb-1">
+                      {item.product.properties.name}
+                    </p>
+                    {role === 'sales_rep' && availability && (
+                      <StockBadge availability={availability} projectedEaches={item.quantity} />
+                    )}
+                    {(role === 'inventory_manager' || role === 'admin') && stockPosition && (
+                      <StockPositionPanel
+                        position={stockPosition}
+                        pendingOrderWeight={item.product.properties.pending_order_weight ?? 0.7}
+                        projectedEaches={item.quantity}
+                      />
+                    )}
+                    {role === 'sales_rep' && !availability && (
+                      <p className="text-xs text-zinc-400">No stock data available.</p>
+                    )}
+                    {(role === 'inventory_manager' || role === 'admin') && !stockPosition && (
+                      <p className="text-xs text-zinc-400">No stock data available.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full min-h-48 text-zinc-400 text-sm">
+            Select a bundle to see analytics.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
