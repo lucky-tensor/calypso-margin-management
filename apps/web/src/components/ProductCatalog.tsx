@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Product, ProductProperties, CostBasis } from 'core';
-import { Plus, Pencil, X } from 'lucide-react';
+import { Plus, Pencil, PackagePlus, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { StockAdjustmentDialog } from './StockAdjustmentDialog';
+import type { StockAdjustmentTarget } from './StockAdjustmentDialog';
 
 const COST_BASIS_OPTIONS: { value: CostBasis; label: string }[] = [
   { value: 'each', label: 'Each' },
@@ -390,6 +392,7 @@ export const ProductCatalog: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<StockAdjustmentTarget | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -426,6 +429,17 @@ export const ProductCatalog: React.FC = () => {
     setModalOpen(false);
     setEditingProduct(null);
   };
+
+  const openAdjust = (product: Product) => {
+    setAdjustTarget({
+      productId: product.id,
+      productName: product.properties.name,
+      productSku: product.properties.sku,
+      currentQty: product.properties.qty_on_hand_eaches ?? 0,
+    });
+  };
+
+  const closeAdjust = () => setAdjustTarget(null);
 
   if (loading) {
     return (
@@ -501,13 +515,22 @@ export const ProductCatalog: React.FC = () => {
                     <td className="px-4 py-3 text-right text-zinc-600">{p.margin_floor}%</td>
                     <td className="px-4 py-3 text-center">
                       {canEdit && (
-                        <button
-                          onClick={() => openEdit(product)}
-                          className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => openEdit(product)}
+                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => openAdjust(product)}
+                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+                            title="Adjust Stock"
+                          >
+                            <PackagePlus size={14} />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -523,6 +546,14 @@ export const ProductCatalog: React.FC = () => {
           editingProduct={editingProduct}
           onClose={closeModal}
           onSaved={fetchProducts}
+        />
+      )}
+
+      {adjustTarget && (
+        <StockAdjustmentDialog
+          target={adjustTarget}
+          onClose={closeAdjust}
+          onSuccess={fetchProducts}
         />
       )}
     </div>

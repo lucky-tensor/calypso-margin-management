@@ -5,6 +5,7 @@ import { Login } from './components/Login';
 import { ProductCatalog } from './components/ProductCatalog';
 import { OrderEntry } from './components/OrderEntry';
 import { OrderHistory } from './components/OrderHistory';
+import { InventoryDashboard } from './components/InventoryDashboard';
 import { User, ShoppingCart, Package, History, Warehouse, Users } from 'lucide-react';
 import { UsersView } from './components/UsersView';
 
@@ -100,9 +101,7 @@ function App() {
             <OrderEntry onNavigateToHistory={() => setActiveView('history')} />
           )}
           {activeView === 'products' && <ProductCatalog />}
-          {activeView === 'inventory' && (
-            <div className="text-sm text-zinc-500">Inventory management coming soon.</div>
-          )}
+          {activeView === 'inventory' && <InventoryDashboard />}
           {activeView === 'history' && <OrderHistory />}
           {activeView === 'users' && <UsersView />}
         </div>

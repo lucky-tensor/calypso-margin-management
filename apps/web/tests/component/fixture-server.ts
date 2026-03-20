@@ -322,6 +322,103 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     });
   }
 
+  // GET /api/inventory — list all products with stock positions
+  if (url.pathname === '/api/inventory' && req.method === 'GET') {
+    const products = state.products ?? [];
+    const entries = products.map((p) => ({
+      product_id: p.id,
+      product_sku: p.properties.sku,
+      product_name: p.properties.name,
+      position: {
+        qty_on_hand: p.properties.qty_on_hand_eaches ?? 0,
+        effective_available: p.properties.qty_on_hand_eaches ?? 0,
+        committed: 0,
+        reorder_point: p.properties.reorder_point_eaches ?? 0,
+        safety_stock: p.properties.safety_stock_eaches ?? 0,
+        days_of_stock: null,
+        status: (p.properties.qty_on_hand_eaches ?? 0) === 0 ? 'critical' : 'healthy',
+      },
+    }));
+    return new Response(JSON.stringify(entries), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // POST /api/inventory/:productId/adjust
+  const adjustMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/adjust$/);
+  if (adjustMatch && req.method === 'POST') {
+    const productId = adjustMatch[1];
+    const body = await req.json();
+    const { txn_type, qty_eaches, reference } = body as {
+      txn_type: string;
+      qty_eaches: number;
+      reference: string;
+    };
+
+    const products = state.products ?? [];
+    const index = products.findIndex((p) => p.id === productId);
+
+    if (index === -1) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const product = products[index];
+    const currentQty = product.properties.qty_on_hand_eaches ?? 0;
+    const balanceAfter = currentQty + qty_eaches;
+
+    if (balanceAfter < 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Adjustment would result in negative stock. Current: ${currentQty}, Adjustment: ${qty_eaches}, Result: ${balanceAfter}`,
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    const updatedProps: ProductProperties = {
+      ...product.properties,
+      qty_on_hand_eaches: balanceAfter,
+    };
+    products[index] = { ...product, properties: updatedProps };
+    state.products = products;
+    store[fixtureId] = state;
+    saveState(statePath, store);
+
+    return new Response(
+      JSON.stringify({
+        transaction: {
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+          properties: {
+            product_id: productId,
+            product_sku: product.properties.sku,
+            txn_type,
+            qty_eaches,
+            reference,
+            balance_after: balanceAfter,
+            created_by: 'test-user',
+          },
+        },
+        stock_position: {
+          product_id: productId,
+          qty_on_hand_eaches: balanceAfter,
+          previous_qty: currentQty,
+        },
+      }),
+      {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+
   return new Response(
     JSON.stringify({ error: `Unhandled fixture route ${req.method} ${url.pathname}` }),
     {
