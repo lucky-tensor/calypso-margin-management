@@ -288,6 +288,10 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
       updatedProperties.status = 'cancelled';
       updatedProperties.cancelled_by = actor;
       updatedProperties.cancelled_at = now;
+    } else if (body.status === 'shipped') {
+      updatedProperties.status = 'shipped';
+      updatedProperties.shipped_by = actor;
+      updatedProperties.shipped_at = now;
     }
 
     orders[index] = { ...existing, properties: updatedProperties };
