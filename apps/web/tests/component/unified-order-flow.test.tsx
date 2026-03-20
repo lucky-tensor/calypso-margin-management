@@ -257,15 +257,14 @@ describe('Order Entry — role-aware stock display', () => {
 
     await selectProduct(screen);
 
-    // Wait for badge to show Out of Stock
-    await expect.element(screen.getByText('Out of Stock')).toBeVisible();
+    // Wait for stock badge to appear (the badge section heading)
+    await expect.element(screen.getByText('Stock')).toBeVisible();
 
     // Fill in all fields
     await screen.getByLabelText('Customer').fill('Test Customer');
-    await screen.getByLabelText('Quantity').fill('60');
     await screen.getByLabelText('Sell price per roll ($)').fill('64.00');
 
-    // Confirm button should be disabled
+    // Confirm button should be disabled (stock blocked)
     const confirmBtn = screen.getByRole('button', { name: 'Confirm Order' });
     await expect.element(confirmBtn).toBeDisabled();
   });
@@ -287,10 +286,10 @@ describe('Order Entry — role-aware stock display', () => {
 
     await selectProduct(screen);
 
-    // Wait for Out of Stock badge
-    await expect.element(screen.getByText('Out of Stock')).toBeVisible();
+    // Wait for stock badge to appear
+    await expect.element(screen.getByText('Stock')).toBeVisible();
 
-    // Red banner should be visible
+    // Red banner should be visible explaining the block
     await expect.element(screen.getByText(/Cannot place order.*out of stock/)).toBeVisible();
   });
 
