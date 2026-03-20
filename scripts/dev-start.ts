@@ -38,8 +38,10 @@ const WEB_PORT = await findAvailablePort(Number(process.env.WEB_PORT ?? 5174));
 async function main() {
   const defaultApiPort = Number(process.env.PORT ?? 31415);
   const defaultWebPort = Number(process.env.WEB_PORT ?? 5174);
-  if (API_PORT !== defaultApiPort) console.log(`  ⚠  Port ${defaultApiPort} in use, API server on ${API_PORT}`);
-  if (WEB_PORT !== defaultWebPort) console.log(`  ⚠  Port ${defaultWebPort} in use, dev server on ${WEB_PORT}`);
+  if (API_PORT !== defaultApiPort)
+    console.log(`  ⚠  Port ${defaultApiPort} in use, API server on ${API_PORT}`);
+  if (WEB_PORT !== defaultWebPort)
+    console.log(`  ⚠  Port ${defaultWebPort} in use, dev server on ${WEB_PORT}`);
   console.log('\n⬡ Starting MeshMargin dev environment');
 
   // 1. Start ephemeral Postgres
