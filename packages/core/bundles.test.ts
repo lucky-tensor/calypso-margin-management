@@ -19,6 +19,12 @@ const makeProduct = (id: string, overrides: Partial<Product['properties']> = {})
     primary_cost_basis: 'each',
     margin_target: 25,
     margin_floor: 15,
+    qty_on_hand_eaches: 0,
+    safety_stock_eaches: 0,
+    reorder_point_eaches: 0,
+    reorder_qty_eaches: null,
+    lead_time_days: null,
+    pending_order_weight: 0.7,
     ...overrides,
   },
 });

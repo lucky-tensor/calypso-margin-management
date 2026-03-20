@@ -43,6 +43,28 @@ function validateProductProperties(
     }
   }
 
+  // Validate inventory fields
+  if (props.safety_stock_eaches !== undefined && props.safety_stock_eaches !== null) {
+    if (props.safety_stock_eaches < 0) return 'safety_stock_eaches must be >= 0';
+  }
+  if (props.reorder_point_eaches !== undefined && props.reorder_point_eaches !== null) {
+    const safetyStock = props.safety_stock_eaches ?? 0;
+    if (props.reorder_point_eaches < safetyStock) {
+      return 'reorder_point_eaches must be >= safety_stock_eaches';
+    }
+  }
+  if (props.reorder_qty_eaches !== undefined && props.reorder_qty_eaches !== null) {
+    if (props.reorder_qty_eaches <= 0) return 'reorder_qty_eaches must be > 0 when set';
+  }
+  if (props.lead_time_days !== undefined && props.lead_time_days !== null) {
+    if (props.lead_time_days <= 0) return 'lead_time_days must be > 0 when set';
+  }
+  if (props.pending_order_weight !== undefined && props.pending_order_weight !== null) {
+    if (props.pending_order_weight < 0 || props.pending_order_weight > 1) {
+      return 'pending_order_weight must be between 0.0 and 1.0';
+    }
+  }
+
   // Validate cost field matching primary_cost_basis
   if (props.primary_cost_basis) {
     const basis: CostBasis = props.primary_cost_basis;
@@ -71,10 +93,34 @@ function rowToProduct(row: {
   properties: ProductProperties;
   created_at: string;
 }): Product {
+  const props = row.properties as Partial<ProductProperties> &
+    Pick<
+      ProductProperties,
+      | 'name'
+      | 'sku'
+      | 'material'
+      | 'width_inches'
+      | 'length_inches'
+      | 'weight_per_sqft'
+      | 'cost_per_each'
+      | 'cost_per_linft'
+      | 'cost_per_sqft'
+      | 'primary_cost_basis'
+      | 'margin_target'
+      | 'margin_floor'
+    >;
   return {
     id: row.id,
     created_at: row.created_at,
-    properties: row.properties,
+    properties: {
+      ...props,
+      qty_on_hand_eaches: props.qty_on_hand_eaches ?? 0,
+      safety_stock_eaches: props.safety_stock_eaches ?? 0,
+      reorder_point_eaches: props.reorder_point_eaches ?? 0,
+      reorder_qty_eaches: props.reorder_qty_eaches ?? null,
+      lead_time_days: props.lead_time_days ?? null,
+      pending_order_weight: props.pending_order_weight ?? 0.7,
+    },
   };
 }
 
@@ -132,6 +178,12 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
         primary_cost_basis: body.primary_cost_basis,
         margin_target: body.margin_target ?? 25,
         margin_floor: body.margin_floor ?? 15,
+        qty_on_hand_eaches: body.qty_on_hand_eaches ?? 0,
+        safety_stock_eaches: body.safety_stock_eaches ?? 0,
+        reorder_point_eaches: body.reorder_point_eaches ?? 0,
+        reorder_qty_eaches: body.reorder_qty_eaches ?? null,
+        lead_time_days: body.lead_time_days ?? null,
+        pending_order_weight: body.pending_order_weight ?? 0.7,
       };
 
       const validationError = validateProductProperties(partial, true);

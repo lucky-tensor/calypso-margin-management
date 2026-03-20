@@ -261,6 +261,115 @@ test('PATCH /api/products/:id returns 404 for nonexistent product', async () => 
 });
 
 // ---------------------------------------------------------------------------
+// Inventory fields tests
+// ---------------------------------------------------------------------------
+
+test('POST /api/products with valid inventory fields returns 201', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Inventory Product',
+      sku: 'INV-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 30.0,
+      primary_cost_basis: 'each',
+      qty_on_hand_eaches: 100,
+      safety_stock_eaches: 10,
+      reorder_point_eaches: 20,
+      reorder_qty_eaches: 50,
+      lead_time_days: 7,
+      pending_order_weight: 0.8,
+    }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.properties.qty_on_hand_eaches).toBe(100);
+  expect(body.properties.safety_stock_eaches).toBe(10);
+  expect(body.properties.reorder_point_eaches).toBe(20);
+  expect(body.properties.reorder_qty_eaches).toBe(50);
+  expect(body.properties.lead_time_days).toBe(7);
+  expect(body.properties.pending_order_weight).toBe(0.8);
+});
+
+test('POST /api/products applies default inventory values when not provided', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Default Inventory Product',
+      sku: 'DEF-INV-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 30.0,
+      primary_cost_basis: 'each',
+    }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.properties.qty_on_hand_eaches).toBe(0);
+  expect(body.properties.safety_stock_eaches).toBe(0);
+  expect(body.properties.reorder_point_eaches).toBe(0);
+  expect(body.properties.reorder_qty_eaches).toBeNull();
+  expect(body.properties.lead_time_days).toBeNull();
+  expect(body.properties.pending_order_weight).toBe(0.7);
+});
+
+test('POST /api/products with reorder_point < safety_stock returns 400', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Bad Reorder Product',
+      sku: 'BAD-REORDER-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 30.0,
+      primary_cost_basis: 'each',
+      safety_stock_eaches: 20,
+      reorder_point_eaches: 10,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('reorder_point_eaches');
+});
+
+test('POST /api/products with invalid pending_order_weight returns 400', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Bad Weight Product',
+      sku: 'BAD-WEIGHT-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 30.0,
+      primary_cost_basis: 'each',
+      pending_order_weight: 1.5,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toContain('pending_order_weight');
+});
+
+test('GET /api/products returns inventory fields with defaults for all products', async () => {
+  const listRes = await fetch(`${BASE}/api/products`, {
+    headers: { Cookie: authCookie },
+  });
+  expect(listRes.status).toBe(200);
+  const products = await listRes.json();
+  for (const product of products) {
+    expect(typeof product.properties.qty_on_hand_eaches).toBe('number');
+    expect(typeof product.properties.safety_stock_eaches).toBe('number');
+    expect(typeof product.properties.reorder_point_eaches).toBe('number');
+    expect(typeof product.properties.pending_order_weight).toBe('number');
+  }
+});
+
+// ---------------------------------------------------------------------------
 
 /** Poll the server until it responds or we time out. */
 async function waitForServer(base: string): Promise<void> {
