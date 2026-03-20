@@ -11,6 +11,9 @@ import type {
   MarginResult,
   Product,
   Order,
+  InventoryTxnType,
+  InventoryTxnProperties,
+  EntityType,
 } from './types';
 
 describe('Role type', () => {
@@ -136,5 +139,36 @@ describe('domain types', () => {
     expectTypeOf<Order>().toHaveProperty('id');
     expectTypeOf<Order>().toHaveProperty('created_at');
     expectTypeOf<Order>().toHaveProperty('properties');
+  });
+
+  it('EntityType includes inventory_txn', () => {
+    const txn: EntityType = 'inventory_txn';
+    expectTypeOf(txn).toMatchTypeOf<EntityType>();
+  });
+
+  it('InventoryTxnType covers all five variants', () => {
+    const a: InventoryTxnType = 'initial';
+    const b: InventoryTxnType = 'receipt';
+    const c: InventoryTxnType = 'adjustment';
+    const d: InventoryTxnType = 'shipment';
+    const e: InventoryTxnType = 'return';
+    expectTypeOf(a).toMatchTypeOf<InventoryTxnType>();
+    expectTypeOf(b).toMatchTypeOf<InventoryTxnType>();
+    expectTypeOf(c).toMatchTypeOf<InventoryTxnType>();
+    expectTypeOf(d).toMatchTypeOf<InventoryTxnType>();
+    expectTypeOf(e).toMatchTypeOf<InventoryTxnType>();
+  });
+
+  it('InventoryTxnProperties has all required fields', () => {
+    const txn: InventoryTxnProperties = {
+      product_id: 'prod-1',
+      product_sku: 'WM-4x4-10GA',
+      txn_type: 'receipt',
+      qty_eaches: 100,
+      reference: 'PO-2024-001',
+      balance_after: 250,
+      created_by: 'user-1',
+    };
+    expectTypeOf(txn).toMatchTypeOf<InventoryTxnProperties>();
   });
 });

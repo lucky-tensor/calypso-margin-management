@@ -1,4 +1,4 @@
-export type EntityType = 'user' | 'product' | 'order';
+export type EntityType = 'user' | 'product' | 'order' | 'inventory_txn';
 
 export interface Entity {
   id: string;
@@ -26,6 +26,22 @@ export interface UserProperties {
   password_hash: string;
   role: Role;
   display_name: string;
+}
+
+// --- Domain types ---
+
+// --- Inventory transaction types ---
+
+export type InventoryTxnType = 'initial' | 'receipt' | 'adjustment' | 'shipment' | 'return';
+
+export interface InventoryTxnProperties {
+  product_id: string;
+  product_sku: string;
+  txn_type: InventoryTxnType;
+  qty_eaches: number;
+  reference: string;
+  balance_after: number;
+  created_by: string;
 }
 
 // --- Domain types ---
