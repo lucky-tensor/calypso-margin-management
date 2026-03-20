@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "postgres": "^3.4.8",
     "typescript": "^5.0.0"
   },
   "dependencies": {
