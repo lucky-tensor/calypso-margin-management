@@ -10,6 +10,7 @@ import { handleAuthRequest } from './api/auth';
 import { handleProductsRequest } from './api/products';
 import { handleOrdersRequest } from './api/orders';
 import { handleInventoryRequest } from './api/inventory';
+import { handleUsersRequest } from './api/users';
 
 await migrate();
 await seed(sql);
@@ -49,6 +50,11 @@ export default {
     if (url.pathname.startsWith('/api/inventory')) {
       const inventoryRes = await handleInventoryRequest(req, url);
       if (inventoryRes) return inventoryRes;
+    }
+
+    if (url.pathname.startsWith('/api/users')) {
+      const usersRes = await handleUsersRequest(req, url);
+      if (usersRes) return usersRes;
     }
 
     // Serve static assets — path is relative to this file, not process cwd
