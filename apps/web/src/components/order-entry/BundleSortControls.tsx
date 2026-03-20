@@ -5,9 +5,18 @@ export type BundleSortKey = 'price-sqft' | 'price-linft';
 export interface BundleSortControlsProps {
   sortKey: BundleSortKey;
   onSortChange: (key: BundleSortKey) => void;
+  /** When true, labels show "Price/…"; when false, labels show "Cost/… (est.)" */
+  usingSellPrice?: boolean;
 }
 
-export function BundleSortControls({ sortKey, onSortChange }: BundleSortControlsProps) {
+export function BundleSortControls({
+  sortKey,
+  onSortChange,
+  usingSellPrice = false,
+}: BundleSortControlsProps) {
+  const sqftLabel = usingSellPrice ? 'Price/sqft' : 'Cost/sqft (est.)';
+  const linftLabel = usingSellPrice ? 'Price/linft' : 'Cost/linft (est.)';
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-medium text-zinc-500">Sort by:</span>
@@ -20,7 +29,7 @@ export function BundleSortControls({ sortKey, onSortChange }: BundleSortControls
             : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
         }`}
       >
-        Price/sqft ↑
+        {sqftLabel} ↑
       </button>
       <button
         type="button"
@@ -31,7 +40,7 @@ export function BundleSortControls({ sortKey, onSortChange }: BundleSortControls
             : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
         }`}
       >
-        Price/linft ↑
+        {linftLabel} ↑
       </button>
     </div>
   );
