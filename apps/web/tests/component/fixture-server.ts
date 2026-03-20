@@ -1,10 +1,20 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import type { Product, ProductProperties, Order, OrderProperties } from 'core';
 
+type UserRole = 'sales_rep' | 'inventory_manager' | 'admin';
+
+interface UserSummary {
+  id: string;
+  username: string;
+  role: UserRole;
+  display_name: string;
+}
+
 type FixtureState = {
   products?: Product[];
   orders?: Order[];
-  currentRole?: 'sales_rep' | 'inventory_manager' | 'admin';
+  users?: UserSummary[];
+  currentRole?: UserRole;
   [key: string]: unknown;
 };
 type FixtureStore = Record<string, FixtureState>;
@@ -266,6 +276,47 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     saveState(statePath, store);
 
     return new Response(JSON.stringify(orders[index]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // GET /api/users
+  if (url.pathname === '/api/users' && req.method === 'GET') {
+    const users = (state.users as UserSummary[]) ?? [];
+    return new Response(JSON.stringify(users), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // PATCH /api/users/:id
+  const patchUserMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
+  if (patchUserMatch && req.method === 'PATCH') {
+    const userId = patchUserMatch[1];
+    const users = (state.users as UserSummary[]) ?? [];
+    const index = users.findIndex((u) => u.id === userId);
+
+    if (index === -1) {
+      return new Response(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json();
+    const existing = users[index];
+    const updated: UserSummary = {
+      ...existing,
+      ...(body.role !== undefined ? { role: body.role as UserRole } : {}),
+      ...(body.display_name !== undefined ? { display_name: body.display_name } : {}),
+    };
+    users[index] = updated;
+    state.users = users;
+    store[fixtureId] = state;
+    saveState(statePath, store);
+
+    return new Response(JSON.stringify(updated), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -5,9 +5,10 @@ import { Login } from './components/Login';
 import { ProductCatalog } from './components/ProductCatalog';
 import { OrderEntry } from './components/OrderEntry';
 import { OrderHistory } from './components/OrderHistory';
-import { User, ShoppingCart, Package, History, Warehouse } from 'lucide-react';
+import { User, ShoppingCart, Package, History, Warehouse, Users } from 'lucide-react';
+import { UsersView } from './components/UsersView';
 
-type ViewId = 'order-entry' | 'products' | 'inventory' | 'history';
+type ViewId = 'order-entry' | 'products' | 'inventory' | 'history' | 'users';
 
 interface NavItem {
   id: ViewId;
@@ -38,6 +39,7 @@ function App() {
     { id: 'products', icon: Package, label: 'Products' },
     { id: 'inventory', icon: Warehouse, label: 'Inventory', roles: ['inventory_manager', 'admin'] },
     { id: 'history', icon: History, label: 'History' },
+    { id: 'users', icon: Users, label: 'Users', roles: ['admin'] },
   ];
 
   const navItems = allNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
@@ -102,6 +104,7 @@ function App() {
             <div className="text-sm text-zinc-500">Inventory management coming soon.</div>
           )}
           {activeView === 'history' && <OrderHistory />}
+          {activeView === 'users' && <UsersView />}
         </div>
       </main>
     </div>
