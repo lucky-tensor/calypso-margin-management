@@ -1,5 +1,5 @@
 import { sql } from 'db';
-import type { ProductProperties } from 'core';
+import type { ProductProperties, InventoryTxnProperties } from 'core';
 import { computeStockPosition } from 'core';
 import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
@@ -106,6 +106,63 @@ export async function handleInventoryRequest(req: Request, url: URL): Promise<Re
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  // GET /api/inventory/:productId/transactions
+  const transactionsMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/transactions$/);
+  if (req.method === 'GET' && transactionsMatch) {
+    const productId = transactionsMatch[1];
+
+    // Requires inventory_manager or admin role
+    const roleGuard = requireRole('inventory_manager', 'admin');
+    const guardResponse = await roleGuard(req);
+    if (guardResponse) return guardResponse;
+
+    const limitParam = url.searchParams.get('limit');
+    const offsetParam = url.searchParams.get('offset');
+    const limit = limitParam !== null ? parseInt(limitParam, 10) : null;
+    const offset = offsetParam !== null ? parseInt(offsetParam, 10) : 0;
+
+    try {
+      let rows: { id: string; properties: InventoryTxnProperties; created_at: string }[];
+
+      if (limit !== null) {
+        rows = await sql<{ id: string; properties: InventoryTxnProperties; created_at: string }[]>`
+          SELECT id, properties, created_at
+          FROM entities
+          WHERE type = 'inventory_txn'
+            AND properties->>'product_id' = ${productId}
+          ORDER BY created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      } else {
+        rows = await sql<{ id: string; properties: InventoryTxnProperties; created_at: string }[]>`
+          SELECT id, properties, created_at
+          FROM entities
+          WHERE type = 'inventory_txn'
+            AND properties->>'product_id' = ${productId}
+          ORDER BY created_at DESC
+          OFFSET ${offset}
+        `;
+      }
+
+      const transactions = rows.map((row) => ({
+        id: row.id,
+        created_at: row.created_at,
+        ...row.properties,
+      }));
+
+      return new Response(JSON.stringify({ transactions }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (err) {
+      console.error('GET /api/inventory/:productId/transactions ERROR:', err);
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   // GET /api/inventory/:productId/availability
