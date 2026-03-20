@@ -9,13 +9,7 @@ describe('Login demo buttons', () => {
     vi.stubGlobal('fetch', vi.fn());
   });
 
-  test('shows demo account buttons when VITE_DEMO_MODE is true', async () => {
-    // The VITE_DEMO_MODE env var is baked in at build time by Vite.
-    // In the component test environment, we import the built module directly.
-    // We need to set the env var before the module loads.
-    // Since vitest-browser re-imports, we control this via env in vitest config.
-    // For this test, we verify the buttons render when the module is loaded with VITE_DEMO_MODE=true.
-
+  test('shows 4 demo account buttons when VITE_DEMO_MODE is true', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -29,11 +23,12 @@ describe('Login demo buttons', () => {
       </AuthProvider>,
     );
 
-    // The demo buttons should be visible when VITE_DEMO_MODE=true
-    // (which is set in the test environment via vitest config define)
     await expect.element(screen.getByText('Demo accounts')).toBeVisible();
-    await expect.element(screen.getByText('Sales Rep')).toBeVisible();
-    await expect.element(screen.getByText('Order Clerk')).toBeVisible();
+    // Use role=button to be specific about the demo account buttons
+    await expect.element(screen.getByRole('button', { name: /Sales Rep/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Order Clerk/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Inv Manager/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Admin/i })).toBeVisible();
   });
 
   test('clicking Sales Rep button triggers login with sales_rep credentials', async () => {
@@ -60,7 +55,6 @@ describe('Login demo buttons', () => {
     await expect.element(screen.getByText('Sales Rep')).toBeVisible();
     await screen.getByText('Sales Rep').click();
 
-    // Verify the login fetch was called with sales_rep credentials
     const loginCall = mockFetch.mock.calls.find(
       (call: unknown[]) =>
         typeof call[0] === 'string' &&
@@ -108,6 +102,84 @@ describe('Login demo buttons', () => {
 
     const body = JSON.parse(loginCall![1].body);
     expect(body.username).toBe('order_clerk');
+    expect(body.password).toBe('demo1234');
+  });
+
+  test('clicking Inv Manager button triggers login with inv_manager credentials', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          user: { id: 'demo-3', username: 'inv_manager', role: 'inventory_manager' },
+        }),
+      });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const screen = render(
+      <AuthProvider>
+        <Login />
+      </AuthProvider>,
+    );
+
+    await expect.element(screen.getByText('Inv Manager')).toBeVisible();
+    await screen.getByText('Inv Manager').click();
+
+    const loginCall = mockFetch.mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === 'string' &&
+        call[0].includes('/api/auth/login') &&
+        call[1]?.body?.includes('inv_manager'),
+    );
+    expect(loginCall).toBeTruthy();
+
+    const body = JSON.parse(loginCall![1].body);
+    expect(body.username).toBe('inv_manager');
+    expect(body.password).toBe('demo1234');
+  });
+
+  test('clicking Admin button triggers login with admin credentials', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ user: { id: 'demo-4', username: 'admin', role: 'admin' } }),
+      });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const screen = render(
+      <AuthProvider>
+        <Login />
+      </AuthProvider>,
+    );
+
+    // Use role=button to avoid strict mode violation (label "Admin" and role badge "admin" both match getByText)
+    const adminButton = screen.getByRole('button', { name: /Admin/i });
+    await expect.element(adminButton).toBeVisible();
+    await adminButton.click();
+
+    const loginCall = mockFetch.mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === 'string' &&
+        call[0].includes('/api/auth/login') &&
+        call[1]?.body?.includes('"admin"'),
+    );
+    expect(loginCall).toBeTruthy();
+
+    const body = JSON.parse(loginCall![1].body);
+    expect(body.username).toBe('admin');
     expect(body.password).toBe('demo1234');
   });
 });

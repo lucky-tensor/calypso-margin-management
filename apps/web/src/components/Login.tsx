@@ -5,13 +5,21 @@ const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
 interface DemoAccount {
   label: string;
+  role: string;
   username: string;
   password: string;
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { label: 'Sales Rep', username: 'sales_rep', password: 'demo1234' },
-  { label: 'Order Clerk', username: 'order_clerk', password: 'demo1234' },
+  { label: 'Sales Rep', role: 'sales_rep', username: 'sales_rep', password: 'demo1234' },
+  { label: 'Order Clerk', role: 'order_clerk', username: 'order_clerk', password: 'demo1234' },
+  {
+    label: 'Inv Manager',
+    role: 'inventory_manager',
+    username: 'inv_manager',
+    password: 'demo1234',
+  },
+  { label: 'Admin', role: 'admin', username: 'admin', password: 'demo1234' },
 ];
 
 export const Login: React.FC = () => {
@@ -154,16 +162,17 @@ export const Login: React.FC = () => {
         {DEMO_MODE && (
           <div className="mt-6 pt-6 border-t border-zinc-200">
             <p className="text-sm text-zinc-500 text-center mb-3">Demo accounts</p>
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {DEMO_ACCOUNTS.map((account) => (
                 <button
                   key={account.username}
                   type="button"
                   disabled={loading}
                   onClick={() => handleDemoLogin(account)}
-                  className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50"
+                  className="flex flex-col items-center bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-medium py-2 px-4 rounded-md transition-colors text-sm disabled:opacity-50"
                 >
-                  {account.label}
+                  <span>{account.label}</span>
+                  <span className="text-xs text-zinc-400 font-normal mt-0.5">{account.role}</span>
                 </button>
               ))}
             </div>
