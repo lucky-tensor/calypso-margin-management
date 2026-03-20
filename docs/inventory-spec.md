@@ -26,11 +26,11 @@ This spec adds **inventory position tracking** and **role-based access control**
 
 V1 has no role concept — `UserProperties` is `{ username, password_hash }` and the JWT carries `{ id, username }`. V2 introduces three roles:
 
-| Role | Code | Description |
-|------|------|------------|
-| **Sales Rep** | `sales_rep` | Creates and manages orders. Sees simplified stock availability (enough to know if they can sell). Cannot configure thresholds, view inventory reports, adjust stock, or mark orders shipped. |
-| **Inventory Manager** | `inventory_manager` | Full access to inventory operations: dashboard, transaction logs, stock adjustments, threshold configuration, shipment processing. Can also do everything a sales rep can. |
-| **Admin** | `admin` | All permissions. Can manage users and assign roles. Supersets all other roles. |
+| Role                  | Code                | Description                                                                                                                                                                                  |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sales Rep**         | `sales_rep`         | Creates and manages orders. Sees simplified stock availability (enough to know if they can sell). Cannot configure thresholds, view inventory reports, adjust stock, or mark orders shipped. |
+| **Inventory Manager** | `inventory_manager` | Full access to inventory operations: dashboard, transaction logs, stock adjustments, threshold configuration, shipment processing. Can also do everything a sales rep can.                   |
+| **Admin**             | `admin`             | All permissions. Can manage users and assign roles. Supersets all other roles.                                                                                                               |
 
 Roles are **not** hierarchical by default — each role has an explicit capability set. However, `inventory_manager` includes all `sales_rep` capabilities, and `admin` includes everything. This is expressed as a capability union, not inheritance.
 
@@ -42,8 +42,8 @@ Roles are **not** hierarchical by default — each role has an explicit capabili
 interface UserProperties {
   username: string;
   password_hash: string;
-  role: Role;              // NEW — 'sales_rep' | 'inventory_manager' | 'admin'
-  display_name: string;    // NEW — human-readable name for audit trails, e.g. "Jane Smith"
+  role: Role; // NEW — 'sales_rep' | 'inventory_manager' | 'admin'
+  display_name: string; // NEW — human-readable name for audit trails, e.g. "Jane Smith"
 }
 
 type Role = 'sales_rep' | 'inventory_manager' | 'admin';
@@ -57,7 +57,7 @@ type Role = 'sales_rep' | 'inventory_manager' | 'admin';
 interface JwtPayload {
   id: string;
   username: string;
-  role: Role;        // NEW — included in token so every request carries the role
+  role: Role; // NEW — included in token so every request carries the role
 }
 ```
 
@@ -69,42 +69,42 @@ Each API endpoint and UI surface maps to a capability. The matrix defines which 
 
 **API Capabilities:**
 
-| Capability | Endpoint | `sales_rep` | `inventory_manager` | `admin` |
-|-----------|----------|:-----------:|:-------------------:|:-------:|
-| Create order | `POST /api/orders` | Yes | Yes | Yes |
-| List orders | `GET /api/orders` | Yes | Yes | Yes |
-| Confirm order | `PATCH /api/orders/:id` (→confirmed) | Yes | Yes | Yes |
-| Cancel order | `PATCH /api/orders/:id` (→cancelled) | Yes | Yes | Yes |
-| **Ship order** | `PATCH /api/orders/:id` (→shipped) | **No** | Yes | Yes |
-| List products | `GET /api/products` | Yes | Yes | Yes |
-| Create product | `POST /api/products` | No | Yes | Yes |
-| Edit product (pricing/dimensions) | `PATCH /api/products/:id` | No | Yes | Yes |
-| **Edit product (inventory thresholds)** | `PATCH /api/products/:id` (inventory fields) | **No** | Yes | Yes |
-| **View stock position** (full) | `GET /api/inventory/:productId` | **No** | Yes | Yes |
-| **View stock position** (simplified) | `GET /api/inventory/:productId/availability` | Yes | Yes | Yes |
-| **View all stock positions** | `GET /api/inventory` | **No** | Yes | Yes |
-| **View transaction log** | `GET /api/inventory/:productId/transactions` | **No** | Yes | Yes |
-| **Adjust stock** | `POST /api/inventory/:productId/adjust` | **No** | Yes | Yes |
-| Manage users | `PATCH /api/users/:id` | No | No | Yes |
-| List users | `GET /api/users` | No | No | Yes |
+| Capability                              | Endpoint                                     | `sales_rep` | `inventory_manager` | `admin` |
+| --------------------------------------- | -------------------------------------------- | :---------: | :-----------------: | :-----: |
+| Create order                            | `POST /api/orders`                           |     Yes     |         Yes         |   Yes   |
+| List orders                             | `GET /api/orders`                            |     Yes     |         Yes         |   Yes   |
+| Confirm order                           | `PATCH /api/orders/:id` (→confirmed)         |     Yes     |         Yes         |   Yes   |
+| Cancel order                            | `PATCH /api/orders/:id` (→cancelled)         |     Yes     |         Yes         |   Yes   |
+| **Ship order**                          | `PATCH /api/orders/:id` (→shipped)           |   **No**    |         Yes         |   Yes   |
+| List products                           | `GET /api/products`                          |     Yes     |         Yes         |   Yes   |
+| Create product                          | `POST /api/products`                         |     No      |         Yes         |   Yes   |
+| Edit product (pricing/dimensions)       | `PATCH /api/products/:id`                    |     No      |         Yes         |   Yes   |
+| **Edit product (inventory thresholds)** | `PATCH /api/products/:id` (inventory fields) |   **No**    |         Yes         |   Yes   |
+| **View stock position** (full)          | `GET /api/inventory/:productId`              |   **No**    |         Yes         |   Yes   |
+| **View stock position** (simplified)    | `GET /api/inventory/:productId/availability` |     Yes     |         Yes         |   Yes   |
+| **View all stock positions**            | `GET /api/inventory`                         |   **No**    |         Yes         |   Yes   |
+| **View transaction log**                | `GET /api/inventory/:productId/transactions` |   **No**    |         Yes         |   Yes   |
+| **Adjust stock**                        | `POST /api/inventory/:productId/adjust`      |   **No**    |         Yes         |   Yes   |
+| Manage users                            | `PATCH /api/users/:id`                       |     No      |         No          |   Yes   |
+| List users                              | `GET /api/users`                             |     No      |         No          |   Yes   |
 
 **UI Visibility:**
 
-| UI Element | `sales_rep` | `inventory_manager` | `admin` |
-|-----------|:-----------:|:-------------------:|:-------:|
-| Order Entry view | Yes | Yes | Yes |
-| Order History view | Yes | Yes | Yes |
-| Products view (read-only list) | Yes | Yes | Yes |
-| Products view (add/edit) | No | Yes | Yes |
-| **Inventory nav item** | **No** | Yes | Yes |
-| **Inventory dashboard** | **No** | Yes | Yes |
-| **Transaction log** | **No** | Yes | Yes |
-| **Stock adjustment dialog** | **No** | Yes | Yes |
-| **"Mark Shipped" button** (Order History) | **No** | Yes | Yes |
-| **Inventory Settings section** (Product edit) | **No** | Yes | Yes |
-| **Full stock breakdown** (Order Entry) | **No** | Yes | Yes |
-| **Simplified stock badge** (Order Entry) | Yes | Yes | Yes |
-| **User management view** | No | No | Yes |
+| UI Element                                    | `sales_rep` | `inventory_manager` | `admin` |
+| --------------------------------------------- | :---------: | :-----------------: | :-----: |
+| Order Entry view                              |     Yes     |         Yes         |   Yes   |
+| Order History view                            |     Yes     |         Yes         |   Yes   |
+| Products view (read-only list)                |     Yes     |         Yes         |   Yes   |
+| Products view (add/edit)                      |     No      |         Yes         |   Yes   |
+| **Inventory nav item**                        |   **No**    |         Yes         |   Yes   |
+| **Inventory dashboard**                       |   **No**    |         Yes         |   Yes   |
+| **Transaction log**                           |   **No**    |         Yes         |   Yes   |
+| **Stock adjustment dialog**                   |   **No**    |         Yes         |   Yes   |
+| **"Mark Shipped" button** (Order History)     |   **No**    |         Yes         |   Yes   |
+| **Inventory Settings section** (Product edit) |   **No**    |         Yes         |   Yes   |
+| **Full stock breakdown** (Order Entry)        |   **No**    |         Yes         |   Yes   |
+| **Simplified stock badge** (Order Entry)      |     Yes     |         Yes         |   Yes   |
+| **User management view**                      |     No      |         No          |   Yes   |
 
 ### 2.4 Sales Rep Stock View vs Manager Stock View
 
@@ -122,6 +122,7 @@ This is a key UX distinction. Both roles see stock information during order entr
 ```
 
 Three status labels for sales reps (not the technical terms):
+
 - Green: **"In Stock"** — go ahead and sell
 - Amber: **"Low Stock"** — sell, but be aware availability is limited
 - Red: **"Out of Stock"** — order will be blocked
@@ -211,10 +212,10 @@ New accounts default to `sales_rep`. The request body can optionally include a `
 
 **New endpoints:**
 
-| Method | Path | Auth | Role | Description |
-|--------|------|------|------|-------------|
-| `GET` | `/api/users` | Yes | `admin` | List all users (id, username, role, display_name — no password_hash) |
-| `PATCH` | `/api/users/:id` | Yes | `admin` | Update user role and/or display_name |
+| Method  | Path             | Auth | Role    | Description                                                          |
+| ------- | ---------------- | ---- | ------- | -------------------------------------------------------------------- |
+| `GET`   | `/api/users`     | Yes  | `admin` | List all users (id, username, role, display_name — no password_hash) |
+| `PATCH` | `/api/users/:id` | Yes  | `admin` | Update user role and/or display_name                                 |
 
 ### 2.8 Frontend Role Gating
 
@@ -222,15 +223,30 @@ New accounts default to `sales_rep`. The request body can optionally include a `
 
 ```typescript
 const navItems = [
-  { id: 'order-entry', icon: ShoppingCart, label: 'Order Entry', roles: ['sales_rep', 'inventory_manager', 'admin'] },
-  { id: 'products',    icon: Package,      label: 'Products',    roles: ['sales_rep', 'inventory_manager', 'admin'] },
-  { id: 'inventory',   icon: Warehouse,    label: 'Inventory',   roles: ['inventory_manager', 'admin'] },
-  { id: 'history',     icon: History,       label: 'History',     roles: ['sales_rep', 'inventory_manager', 'admin'] },
-  { id: 'users',       icon: Users,        label: 'Users',       roles: ['admin'] },
+  {
+    id: 'order-entry',
+    icon: ShoppingCart,
+    label: 'Order Entry',
+    roles: ['sales_rep', 'inventory_manager', 'admin'],
+  },
+  {
+    id: 'products',
+    icon: Package,
+    label: 'Products',
+    roles: ['sales_rep', 'inventory_manager', 'admin'],
+  },
+  { id: 'inventory', icon: Warehouse, label: 'Inventory', roles: ['inventory_manager', 'admin'] },
+  {
+    id: 'history',
+    icon: History,
+    label: 'History',
+    roles: ['sales_rep', 'inventory_manager', 'admin'],
+  },
+  { id: 'users', icon: Users, label: 'Users', roles: ['admin'] },
 ];
 
 // Filter to only show nav items the current user's role allows
-const visibleNav = navItems.filter(item => item.roles.includes(user.role));
+const visibleNav = navItems.filter((item) => item.roles.includes(user.role));
 ```
 
 **Component-level gating:**
@@ -264,14 +280,14 @@ Every product SKU has an **inventory position** computed from three inputs:
 └─────────────────────────────────────────────────────┘
 ```
 
-| Term | Definition |
-|------|-----------|
-| `qty_on_hand` | Physical inventory in the warehouse. Updated via inventory transactions (receipts, adjustments, shipments). |
-| `committed_qty` | Sum of `qty_eaches` across all **confirmed** (not cancelled) orders for this product. These units are spoken for — they will ship. Counted at 100%. |
-| `pending_qty` | Sum of `qty_eaches` across all **draft** orders for this product. Some will convert to confirmed, some will be cancelled. |
-| `pending_order_weight` | Manager-configurable weight (0.0–1.0) applied to `pending_qty`. Default: `0.70` (assume 70% of drafts will convert). |
-| `net_available` | `qty_on_hand - committed_qty`. Hard floor — ignores drafts entirely. |
-| `effective_available` | `qty_on_hand - committed_qty - (pending_qty × pending_order_weight)`. The realistic sellable stock. This is the number used for threshold evaluation. |
+| Term                   | Definition                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qty_on_hand`          | Physical inventory in the warehouse. Updated via inventory transactions (receipts, adjustments, shipments).                                           |
+| `committed_qty`        | Sum of `qty_eaches` across all **confirmed** (not cancelled) orders for this product. These units are spoken for — they will ship. Counted at 100%.   |
+| `pending_qty`          | Sum of `qty_eaches` across all **draft** orders for this product. Some will convert to confirmed, some will be cancelled.                             |
+| `pending_order_weight` | Manager-configurable weight (0.0–1.0) applied to `pending_qty`. Default: `0.70` (assume 70% of drafts will convert).                                  |
+| `net_available`        | `qty_on_hand - committed_qty`. Hard floor — ignores drafts entirely.                                                                                  |
+| `effective_available`  | `qty_on_hand - committed_qty - (pending_qty × pending_order_weight)`. The realistic sellable stock. This is the number used for threshold evaluation. |
 
 ### Threshold Evaluation
 
@@ -293,13 +309,13 @@ qty_on_hand
 └── 0
 ```
 
-| Status | Condition | Behavior |
-|--------|-----------|----------|
-| `healthy` | `effective_available > reorder_point` | No indicator. Business as usual. |
-| `warning` | `safety_stock < effective_available ≤ reorder_point` | Order **allowed**. Response includes `stock_warning: true`. UI shows amber "Reorder Needed" badge. |
-| `critical` | `effective_available ≤ safety_stock` | Order **blocked**. Server returns 400 with `stock_blocked` error. UI prevents submission. |
+| Status     | Condition                                            | Behavior                                                                                           |
+| ---------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `healthy`  | `effective_available > reorder_point`                | No indicator. Business as usual.                                                                   |
+| `warning`  | `safety_stock < effective_available ≤ reorder_point` | Order **allowed**. Response includes `stock_warning: true`. UI shows amber "Reorder Needed" badge. |
+| `critical` | `effective_available ≤ safety_stock`                 | Order **blocked**. Server returns 400 with `stock_blocked` error. UI prevents submission.          |
 
-**Threshold evaluation happens prospectively** — the system checks what the stock position *would be* after the new order, not what it is now. This prevents the last order from breaching safety stock.
+**Threshold evaluation happens prospectively** — the system checks what the stock position _would be_ after the new order, not what it is now. This prevents the last order from breaching safety stock.
 
 ```
 projected_effective = effective_available - new_order_qty_eaches
@@ -316,28 +332,28 @@ Added to the existing `ProductProperties` interface:
 ```typescript
 // --- Inventory configuration (set by managers) ---
 
-qty_on_hand_eaches: number;        // Current physical stock. Updated via inventory
-                                    // transactions. Default: 0.
+qty_on_hand_eaches: number; // Current physical stock. Updated via inventory
+// transactions. Default: 0.
 
-safety_stock_eaches: number;       // Absolute minimum buffer. Orders that would drop
-                                    // effective_available to or below this level are
-                                    // BLOCKED. Default: 0 (no safety stock enforced).
+safety_stock_eaches: number; // Absolute minimum buffer. Orders that would drop
+// effective_available to or below this level are
+// BLOCKED. Default: 0 (no safety stock enforced).
 
-reorder_point_eaches: number;      // Trigger level. When effective_available drops to
-                                    // or below this level, a "reorder needed" warning
-                                    // is surfaced. Must be >= safety_stock. Default: 0.
+reorder_point_eaches: number; // Trigger level. When effective_available drops to
+// or below this level, a "reorder needed" warning
+// is surfaced. Must be >= safety_stock. Default: 0.
 
 reorder_qty_eaches: number | null; // Standard replenishment quantity — how many eaches
-                                    // to order from the supplier. Informational only
-                                    // (no auto-PO in V2). null = not configured.
+// to order from the supplier. Informational only
+// (no auto-PO in V2). null = not configured.
 
-lead_time_days: number | null;     // Supplier lead time in calendar days. Used for
-                                    // "days until stockout" calculation. null = unknown.
+lead_time_days: number | null; // Supplier lead time in calendar days. Used for
+// "days until stockout" calculation. null = unknown.
 
-pending_order_weight: number;      // Weight applied to draft order qty when computing
-                                    // effective_available. Range: 0.0 to 1.0.
-                                    // Default: 0.70. Set to 0.0 to ignore drafts
-                                    // entirely; set to 1.0 to treat drafts as firm.
+pending_order_weight: number; // Weight applied to draft order qty when computing
+// effective_available. Range: 0.0 to 1.0.
+// Default: 0.70. Set to 0.0 to ignore drafts
+// entirely; set to 1.0 to treat drafts as firm.
 ```
 
 **`qty_on_hand_eaches` is denormalized.** The authoritative value is the sum of all inventory transactions for the product. The product entity caches this value for fast reads. It is recomputed on every inventory transaction write.
@@ -356,23 +372,23 @@ Every stock movement is an immutable transaction record. This provides a full au
 
 ```typescript
 type InventoryTxnType =
-  | 'initial'       // Opening balance (seed / go-live)
-  | 'receipt'        // Stock received from supplier
-  | 'adjustment'     // Manual correction (positive or negative)
-  | 'shipment'       // Stock leaves warehouse (order fulfilled)
-  | 'return';        // Stock returned to warehouse
+  | 'initial' // Opening balance (seed / go-live)
+  | 'receipt' // Stock received from supplier
+  | 'adjustment' // Manual correction (positive or negative)
+  | 'shipment' // Stock leaves warehouse (order fulfilled)
+  | 'return'; // Stock returned to warehouse
 
 interface InventoryTxnProperties {
-  product_id: string;                // FK to product entity
-  product_sku: string;               // Denormalized for display
+  product_id: string; // FK to product entity
+  product_sku: string; // Denormalized for display
   txn_type: InventoryTxnType;
-  qty_eaches: number;                // Positive = stock in, negative = stock out.
-                                     //   receipt/initial/return: positive
-                                     //   shipment: negative
-                                     //   adjustment: either direction
-  reference: string;                 // Free-text: PO number, order ID, reason, etc.
-  balance_after: number;             // Running balance snapshot (qty_on_hand after this txn)
-  created_by: string;                // User ID
+  qty_eaches: number; // Positive = stock in, negative = stock out.
+  //   receipt/initial/return: positive
+  //   shipment: negative
+  //   adjustment: either direction
+  reference: string; // Free-text: PO number, order ID, reason, etc.
+  balance_after: number; // Running balance snapshot (qty_on_hand after this txn)
+  created_by: string; // User ID
 }
 ```
 
@@ -392,9 +408,9 @@ stock_position_at_creation: {
   committed_qty: number;
   pending_qty: number;
   effective_available: number;
-  projected_effective: number;     // effective_available after this order
-  stock_status: StockStatus;       // status at time of creation
-};
+  projected_effective: number; // effective_available after this order
+  stock_status: StockStatus; // status at time of creation
+}
 ```
 
 This snapshot is informational — it records the stock position the sales rep saw when the order was created. It does not change when stock changes later.
@@ -410,12 +426,12 @@ draft ──→ confirmed ──→ shipped
   └──────→ cancelled
 ```
 
-| Transition | Side Effect |
-|-----------|-------------|
-| `draft → confirmed` | Sets `confirmed_by`, `confirmed_at`. No stock movement. |
-| `confirmed → shipped` | Sets `shipped_by`, `shipped_at`. Creates a `shipment` inventory_txn with `qty_eaches = -order.qty_eaches`. Updates product `qty_on_hand_eaches`. |
-| `draft → cancelled` | Sets `cancelled_by`, `cancelled_at`. No stock movement. |
-| `confirmed → cancelled` | Sets `cancelled_by`, `cancelled_at`. No stock movement (nothing shipped). |
+| Transition              | Side Effect                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `draft → confirmed`     | Sets `confirmed_by`, `confirmed_at`. No stock movement.                                                                                          |
+| `confirmed → shipped`   | Sets `shipped_by`, `shipped_at`. Creates a `shipment` inventory_txn with `qty_eaches = -order.qty_eaches`. Updates product `qty_on_hand_eaches`. |
+| `draft → cancelled`     | Sets `cancelled_by`, `cancelled_at`. No stock movement.                                                                                          |
+| `confirmed → cancelled` | Sets `cancelled_by`, `cancelled_at`. No stock movement (nothing shipped).                                                                        |
 
 **New audit fields on OrderProperties:**
 
@@ -436,14 +452,14 @@ All functions are **pure** and live in `packages/core/inventory.ts` alongside th
 type StockStatus = 'healthy' | 'warning' | 'critical';
 
 interface StockPosition {
-  qty_on_hand: number;         // Physical stock (from product)
-  committed_qty: number;       // Sum of confirmed order eaches
-  pending_qty: number;         // Sum of draft order eaches
-  net_available: number;       // qty_on_hand - committed_qty
+  qty_on_hand: number; // Physical stock (from product)
+  committed_qty: number; // Sum of confirmed order eaches
+  pending_qty: number; // Sum of draft order eaches
+  net_available: number; // qty_on_hand - committed_qty
   effective_available: number; // qty_on_hand - committed_qty - (pending_qty × weight)
   status: StockStatus;
-  reorder_point: number;       // Echo back for display
-  safety_stock: number;        // Echo back for display
+  reorder_point: number; // Echo back for display
+  safety_stock: number; // Echo back for display
   reorder_qty: number | null;
   lead_time_days: number | null;
   days_of_stock: number | null; // effective_available / avg_daily_usage (null if no data)
@@ -452,10 +468,10 @@ interface StockPosition {
 interface StockCheckResult {
   allowed: boolean;
   position: StockPosition;
-  projected_effective: number;  // effective_available after proposed order
+  projected_effective: number; // effective_available after proposed order
   projected_status: StockStatus;
-  warning: string | null;       // Human-readable warning if status != healthy
-  block_reason: string | null;  // Human-readable reason if blocked
+  warning: string | null; // Human-readable warning if status != healthy
+  block_reason: string | null; // Human-readable reason if blocked
 }
 ```
 
@@ -494,7 +510,7 @@ checkOrderStock(
 ) → StockCheckResult
 ```
 
-**Prospective check.** Computes the stock position *as if* the new order were added as a draft, then evaluates thresholds.
+**Prospective check.** Computes the stock position _as if_ the new order were added as a draft, then evaluates thresholds.
 
 ```
 projected_pending = draftOrderQtyEaches + newOrderQtyEaches
@@ -545,7 +561,7 @@ Returns `effective_available / avg_daily_usage`, or null if usage is zero/unknow
   "reorder_point_eaches": 0,
   "reorder_qty_eaches": null,
   "lead_time_days": null,
-  "pending_order_weight": 0.70
+  "pending_order_weight": 0.7
 }
 ```
 
@@ -825,10 +841,25 @@ The existing demo users gain roles. A third demo user is added for the inventory
 
 ```typescript
 const DEMO_USERS = [
-  { username: 'sales_rep',     password: 'demo1234', role: 'sales_rep',          display_name: 'Demo Sales Rep' },
-  { username: 'order_clerk',   password: 'demo1234', role: 'sales_rep',          display_name: 'Demo Order Clerk' },
-  { username: 'inv_manager',   password: 'demo1234', role: 'inventory_manager',  display_name: 'Demo Inventory Mgr' },
-  { username: 'admin',         password: 'demo1234', role: 'admin',              display_name: 'Demo Admin' },
+  {
+    username: 'sales_rep',
+    password: 'demo1234',
+    role: 'sales_rep',
+    display_name: 'Demo Sales Rep',
+  },
+  {
+    username: 'order_clerk',
+    password: 'demo1234',
+    role: 'sales_rep',
+    display_name: 'Demo Order Clerk',
+  },
+  {
+    username: 'inv_manager',
+    password: 'demo1234',
+    role: 'inventory_manager',
+    display_name: 'Demo Inventory Mgr',
+  },
+  { username: 'admin', password: 'demo1234', role: 'admin', display_name: 'Demo Admin' },
 ];
 ```
 
@@ -840,11 +871,46 @@ The demo seed extends to populate inventory data for all five products:
 
 ```typescript
 const INVENTORY_SEED = [
-  { sku: 'WM-4X4-10GA',        qty_on_hand: 150, safety_stock: 25,  reorder_point: 100, reorder_qty: 200, lead_time_days: 14 },
-  { sku: 'WM-4X4-10GA-36X96',  qty_on_hand: 80,  safety_stock: 15,  reorder_point: 50,  reorder_qty: 100, lead_time_days: 14 },
-  { sku: 'WM-4X4-10GA-60X120', qty_on_hand: 12,  safety_stock: 10,  reorder_point: 40,  reorder_qty: 80,  lead_time_days: 21 },
-  { sku: 'WM-4X4-10GA-48X240', qty_on_hand: 200, safety_stock: 30,  reorder_point: 80,  reorder_qty: 150, lead_time_days: 14 },
-  { sku: 'WM-4X4-10GA-60X240', qty_on_hand: 45,  safety_stock: 20,  reorder_point: 60,  reorder_qty: 120, lead_time_days: 21 },
+  {
+    sku: 'WM-4X4-10GA',
+    qty_on_hand: 150,
+    safety_stock: 25,
+    reorder_point: 100,
+    reorder_qty: 200,
+    lead_time_days: 14,
+  },
+  {
+    sku: 'WM-4X4-10GA-36X96',
+    qty_on_hand: 80,
+    safety_stock: 15,
+    reorder_point: 50,
+    reorder_qty: 100,
+    lead_time_days: 14,
+  },
+  {
+    sku: 'WM-4X4-10GA-60X120',
+    qty_on_hand: 12,
+    safety_stock: 10,
+    reorder_point: 40,
+    reorder_qty: 80,
+    lead_time_days: 21,
+  },
+  {
+    sku: 'WM-4X4-10GA-48X240',
+    qty_on_hand: 200,
+    safety_stock: 30,
+    reorder_point: 80,
+    reorder_qty: 150,
+    lead_time_days: 14,
+  },
+  {
+    sku: 'WM-4X4-10GA-60X240',
+    qty_on_hand: 45,
+    safety_stock: 20,
+    reorder_point: 60,
+    reorder_qty: 120,
+    lead_time_days: 21,
+  },
 ];
 ```
 
@@ -860,7 +926,7 @@ Note: `WM-4X4-10GA-60X120` is seeded near-critical (12 on hand, safety stock 10)
 
 The seed data is designed to support this demo flow:
 
-1. **Login as `sales_rep`** → Order Entry. Select WM-4X4-10GA. See green "In Stock" badge (84 available). Enter order. See amber "Low Stock" after.  Select WM-4X4-10GA-60X120. See red "Out of Stock." Confirm button disabled. Note: no inventory nav, no threshold visibility, no "Mark Shipped" button.
+1. **Login as `sales_rep`** → Order Entry. Select WM-4X4-10GA. See green "In Stock" badge (84 available). Enter order. See amber "Low Stock" after. Select WM-4X4-10GA-60X120. See red "Out of Stock." Confirm button disabled. Note: no inventory nav, no threshold visibility, no "Mark Shipped" button.
 2. **Login as `inv_manager`** → Inventory dashboard shows all 5 products with full breakdowns. WM-60X120 is critical. Click to see transaction log. Adjust stock (+50 receipt). Product goes healthy. Switch to Order Entry — see full stock position with committed/pending/weight breakdown. Go to History — "Mark Shipped" button visible on confirmed orders.
 3. **Login as `admin`** → Users view. Change `order_clerk` role to `inventory_manager`. Log in as `order_clerk` — now sees Inventory nav.
 
@@ -969,7 +1035,12 @@ Nav has four items: Order Entry, Products, Inventory, History. Can click into In
 Sales rep crafts a direct `POST /api/inventory/abc/adjust` request to add stock. Server checks `user.role` from the JWT:
 
 ```json
-{ "error": "Forbidden", "message": "This action requires the inventory_manager role.", "required_role": "inventory_manager", "current_role": "sales_rep" }
+{
+  "error": "Forbidden",
+  "message": "This action requires the inventory_manager role.",
+  "required_role": "inventory_manager",
+  "current_role": "sales_rep"
+}
 ```
 
 403 returned. Enforcement is always server-side, never just UI hiding.
@@ -1085,18 +1156,18 @@ This feature decomposes into the following issues, ordered by dependency:
 
 ## 11. Explicitly Out of Scope
 
-| Item | Reason |
-|------|--------|
-| Automatic purchase orders | V2 is inform-only. Managers see reorder signals, then act outside MeshMargin. |
-| Demand forecasting | `days_of_stock` uses trailing 30-day average. Statistical forecasting (seasonality, trends) is V3. |
-| Multiple warehouse locations | Single location per product. Multi-location inventory is a multi-tenant concern. |
-| Lot tracking / serial numbers | Not needed for wire mesh roll products in V2. |
-| Backorder management | Blocked orders must be retried manually after stock is replenished. |
-| Inventory reservation (soft lock) | Draft orders affect stock position via `pending_order_weight` but do not hard-lock inventory. |
-| Barcode / scanner integration | Manual entry only for V2. |
-| Inventory valuation (FIFO/LIFO/WAC) | Cost is per-product, not per-lot. Valuation methods are a finance feature. |
-| Custom permission granularity | V2 uses fixed role → capability mapping. No per-user or per-resource permissions. |
-| SSO / enterprise auth | V2 uses username/password with JWT. Azure AD / Okta / SAML is V3. |
-| Audit log for role changes | Role changes are applied immediately. A full admin audit journal is V3. |
-| Row-level order visibility | Sales reps see all orders, not just their own. Per-user order filtering is V3. |
-| Team / department hierarchy | Roles are flat. Org-chart-based access (e.g., "sales manager sees their team's orders") is V3. |
+| Item                                | Reason                                                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Automatic purchase orders           | V2 is inform-only. Managers see reorder signals, then act outside MeshMargin.                      |
+| Demand forecasting                  | `days_of_stock` uses trailing 30-day average. Statistical forecasting (seasonality, trends) is V3. |
+| Multiple warehouse locations        | Single location per product. Multi-location inventory is a multi-tenant concern.                   |
+| Lot tracking / serial numbers       | Not needed for wire mesh roll products in V2.                                                      |
+| Backorder management                | Blocked orders must be retried manually after stock is replenished.                                |
+| Inventory reservation (soft lock)   | Draft orders affect stock position via `pending_order_weight` but do not hard-lock inventory.      |
+| Barcode / scanner integration       | Manual entry only for V2.                                                                          |
+| Inventory valuation (FIFO/LIFO/WAC) | Cost is per-product, not per-lot. Valuation methods are a finance feature.                         |
+| Custom permission granularity       | V2 uses fixed role → capability mapping. No per-user or per-resource permissions.                  |
+| SSO / enterprise auth               | V2 uses username/password with JWT. Azure AD / Okta / SAML is V3.                                  |
+| Audit log for role changes          | Role changes are applied immediately. A full admin audit journal is V3.                            |
+| Row-level order visibility          | Sales reps see all orders, not just their own. Per-user order filtering is V3.                     |
+| Team / department hierarchy         | Roles are flat. Org-chart-based access (e.g., "sales manager sees their team's orders") is V3.     |
