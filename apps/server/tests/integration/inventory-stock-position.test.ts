@@ -183,9 +183,10 @@ test('Integration: product with known orders returns correct StockPosition value
   const confirmedOrder = await confirmedOrderRes.json();
 
   // Confirm the order
-  const confirmRes = await fetch(`${BASE}/api/orders/${confirmedOrder.id}/confirm`, {
-    method: 'POST',
-    headers: { Cookie: inventoryManagerCookie },
+  const confirmRes = await fetch(`${BASE}/api/orders/${confirmedOrder.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: inventoryManagerCookie },
+    body: JSON.stringify({ status: 'confirmed' }),
   });
   expect(confirmRes.status).toBe(200);
 
