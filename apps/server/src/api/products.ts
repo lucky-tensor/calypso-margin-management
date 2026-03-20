@@ -93,7 +93,22 @@ function rowToProduct(row: {
   properties: ProductProperties;
   created_at: string;
 }): Product {
-  const props = row.properties as Partial<ProductProperties> & Pick<ProductProperties, 'name' | 'sku' | 'material' | 'width_inches' | 'length_inches' | 'weight_per_sqft' | 'cost_per_each' | 'cost_per_linft' | 'cost_per_sqft' | 'primary_cost_basis' | 'margin_target' | 'margin_floor'>;
+  const props = row.properties as Partial<ProductProperties> &
+    Pick<
+      ProductProperties,
+      | 'name'
+      | 'sku'
+      | 'material'
+      | 'width_inches'
+      | 'length_inches'
+      | 'weight_per_sqft'
+      | 'cost_per_each'
+      | 'cost_per_linft'
+      | 'cost_per_sqft'
+      | 'primary_cost_basis'
+      | 'margin_target'
+      | 'margin_floor'
+    >;
   return {
     id: row.id,
     created_at: row.created_at,
@@ -104,7 +119,7 @@ function rowToProduct(row: {
       reorder_point_eaches: props.reorder_point_eaches ?? 0,
       reorder_qty_eaches: props.reorder_qty_eaches ?? null,
       lead_time_days: props.lead_time_days ?? null,
-      pending_order_weight: props.pending_order_weight ?? 0.70,
+      pending_order_weight: props.pending_order_weight ?? 0.7,
     },
   };
 }
@@ -168,7 +183,7 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
         reorder_point_eaches: body.reorder_point_eaches ?? 0,
         reorder_qty_eaches: body.reorder_qty_eaches ?? null,
         lead_time_days: body.lead_time_days ?? null,
-        pending_order_weight: body.pending_order_weight ?? 0.70,
+        pending_order_weight: body.pending_order_weight ?? 0.7,
       };
 
       const validationError = validateProductProperties(partial, true);

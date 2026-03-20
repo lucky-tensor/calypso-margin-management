@@ -58,7 +58,7 @@ describe('domain types', () => {
       reorder_point_eaches: 0,
       reorder_qty_eaches: null,
       lead_time_days: null,
-      pending_order_weight: 0.70,
+      pending_order_weight: 0.7,
     };
     expectTypeOf(product).toMatchTypeOf<ProductProperties>();
   });
