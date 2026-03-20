@@ -81,6 +81,8 @@ describe('domain types', () => {
       confirmed_at: null,
       cancelled_by: null,
       cancelled_at: null,
+      shipped_by: null,
+      shipped_at: null,
     };
     expectTypeOf(order).toMatchTypeOf<OrderProperties>();
   });

@@ -30,7 +30,7 @@ export type UnitOfMeasure = 'each' | 'linear_foot' | 'square_foot';
 
 export type CostBasis = 'each' | 'linear_foot' | 'square_foot';
 
-export type OrderStatus = 'draft' | 'confirmed' | 'cancelled';
+export type OrderStatus = 'draft' | 'confirmed' | 'cancelled' | 'shipped';
 
 export interface ProductProperties {
   name: string;
@@ -77,6 +77,8 @@ export interface OrderProperties {
   confirmed_at: string | null;
   cancelled_by: string | null;
   cancelled_at: string | null;
+  shipped_by: string | null;
+  shipped_at: string | null;
 }
 
 export interface UnitConversions {

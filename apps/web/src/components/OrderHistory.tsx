@@ -11,6 +11,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   draft: 'Draft',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',
+  shipped: 'Shipped',
 };
 
 function formatCurrency(value: number): string {
