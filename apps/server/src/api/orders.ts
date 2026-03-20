@@ -93,9 +93,14 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         });
       }
 
-      const { customer, product_id, quantity, unit_of_measure, sell_price_per_unit, notes } = body;
+      const customer = body.customer as string | undefined;
+      const product_id = body.product_id as string | undefined;
+      const quantity = body.quantity as number | undefined;
+      const unit_of_measure = body.unit_of_measure as string | undefined;
+      const sell_price_per_unit = body.sell_price_per_unit as number | undefined;
+      const notes = body.notes as string | undefined;
 
-      if (!customer || (typeof customer === 'string' && customer.trim() === '')) {
+      if (!customer || customer.trim() === '') {
         return new Response(JSON.stringify({ error: 'Missing required field: customer' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -107,7 +112,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (quantity === undefined || quantity === null) {
+      if (quantity === undefined) {
         return new Response(JSON.stringify({ error: 'Missing required field: quantity' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -121,7 +126,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       }
 
       const validUnits = ['each', 'linear_foot', 'square_foot'];
-      if (!validUnits.includes(unit_of_measure as string)) {
+      if (!validUnits.includes(unit_of_measure)) {
         return new Response(
           JSON.stringify({ error: `Invalid unit_of_measure: ${unit_of_measure}` }),
           {
@@ -130,7 +135,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
           },
         );
       }
-      if (sell_price_per_unit === undefined || sell_price_per_unit === null) {
+      if (sell_price_per_unit === undefined) {
         return new Response(
           JSON.stringify({ error: 'Missing required field: sell_price_per_unit' }),
           {
@@ -146,7 +151,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       >`
         SELECT id, properties, created_at
         FROM entities
-        WHERE id = ${product_id} AND type = 'product'
+        WHERE id = ${product_id!} AND type = 'product'
       `;
 
       if (productRows.length === 0) {
@@ -163,7 +168,12 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       };
 
       // Compute all derived order fields
-      const computed = computeOrderFields(product, quantity, unit_of_measure, sell_price_per_unit);
+      const computed = computeOrderFields(
+        product,
+        quantity,
+        unit_of_measure as 'each' | 'linear_foot' | 'square_foot',
+        sell_price_per_unit,
+      );
 
       // Reject orders below the product's margin floor
       if (computed.margin_percent < product.properties.margin_floor) {
@@ -179,12 +189,12 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       }
 
       const properties: OrderProperties = {
-        customer,
-        product_id,
+        customer: customer!,
+        product_id: product_id!,
         product_name: product.properties.name,
-        quantity,
-        unit_of_measure,
-        sell_price_per_unit,
+        quantity: quantity!,
+        unit_of_measure: unit_of_measure as 'each' | 'linear_foot' | 'square_foot',
+        sell_price_per_unit: sell_price_per_unit!,
         qty_eaches: computed.qty_eaches,
         qty_linft: computed.qty_linft,
         qty_sqft: computed.qty_sqft,
@@ -254,7 +264,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       }
       const currentProps = existing[0].properties;
       const currentStatus = currentProps.status;
-      const newStatus = body.status;
+      const newStatus = body.status as string | undefined;
 
       // Validate status transition if status is being changed
       if (newStatus !== undefined && newStatus !== currentStatus) {
@@ -265,7 +275,7 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         };
 
         const allowed = validTransitions[currentStatus] ?? [];
-        if (!allowed.includes(newStatus as string)) {
+        if (!allowed.includes(newStatus!)) {
           return new Response(
             JSON.stringify({
               error: `Invalid status transition: ${currentStatus} -> ${newStatus}`,
@@ -281,11 +291,11 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       const updatedProps: OrderProperties = { ...currentProps };
 
       if (body.notes !== undefined) {
-        updatedProps.notes = body.notes;
+        updatedProps.notes = body.notes as string;
       }
 
       if (newStatus !== undefined && newStatus !== currentStatus) {
-        updatedProps.status = newStatus;
+        updatedProps.status = newStatus as OrderProperties['status'];
         const now = new Date().toISOString();
 
         if (newStatus === 'confirmed') {
