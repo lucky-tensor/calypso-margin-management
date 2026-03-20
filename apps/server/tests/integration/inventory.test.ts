@@ -1,5 +1,6 @@
 import { test, expect, beforeAll, afterAll } from 'vitest';
 import type { Subprocess } from 'bun';
+import postgres from 'postgres';
 import { startPostgres, type PgContainer } from '../helpers/pg-container';
 
 const PORT = 31420;
@@ -10,6 +11,7 @@ const SERVER_ENTRY = 'apps/server/src/index.ts';
 
 let pg: PgContainer;
 let server: Subprocess;
+/** inventory_manager cookie — used for product write operations (POST) */
 let authCookie = '';
 let salesRepCookie = '';
 
@@ -25,14 +27,31 @@ beforeAll(async () => {
 
   await waitForServer(BASE);
 
-  // Register and login a default test user
-  const username = `test_${Date.now()}`;
-  const res = await fetch(`${BASE}/api/auth/register`, {
+  // Insert an inventory_manager user directly into the database so that
+  // product write operations (POST) are authorised.
+  const sql = postgres(pg.url, { max: 1 });
+  const invMgrUsername = `inv_mgr_inv_${Date.now()}`;
+  const invMgrId = crypto.randomUUID();
+  const invMgrHash = await Bun.password.hash('testpass123');
+  await sql`
+    INSERT INTO entities (id, type, properties, tenant_id)
+    VALUES (
+      ${invMgrId},
+      'user',
+      ${sql.json({ username: invMgrUsername, password_hash: invMgrHash, role: 'inventory_manager' })},
+      null
+    )
+  `;
+  await sql.end();
+
+  // Log in as the inventory_manager
+  const invMgrRes = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password: 'testpass123' }),
+    body: JSON.stringify({ username: invMgrUsername, password: 'testpass123' }),
   });
-  const setCookie = res.headers.get('set-cookie') ?? '';
+  expect(invMgrRes.status).toBe(200);
+  const setCookie = invMgrRes.headers.get('set-cookie') ?? '';
   authCookie = setCookie.split(';')[0];
 
   // Register a sales_rep user (any authenticated user should access this endpoint)
