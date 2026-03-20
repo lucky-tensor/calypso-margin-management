@@ -76,9 +76,7 @@ describe('AuthContext — role and display_name', () => {
     );
 
     await expect.element(screen.getByTestId('role')).toHaveTextContent('inventory_manager');
-    await expect.element(screen.getByTestId('display-name')).toHaveTextContent(
-      'Inventory Manager',
-    );
+    await expect.element(screen.getByTestId('display-name')).toHaveTextContent('Inventory Manager');
   });
 
   test('session restore populates role — login then session check both carry role', async () => {

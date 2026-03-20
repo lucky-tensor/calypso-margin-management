@@ -40,9 +40,12 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
 
   // Auth stub - always authenticated
   if (url.pathname === '/api/auth/me') {
-    const role = (url.searchParams.get('role') as 'sales_rep' | 'inventory_manager' | 'admin') ?? 'sales_rep';
+    const role =
+      (url.searchParams.get('role') as 'sales_rep' | 'inventory_manager' | 'admin') ?? 'sales_rep';
     return new Response(
-      JSON.stringify({ user: { id: 'test-user', username: 'test', role, display_name: 'Test User' } }),
+      JSON.stringify({
+        user: { id: 'test-user', username: 'test', role, display_name: 'Test User' },
+      }),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
