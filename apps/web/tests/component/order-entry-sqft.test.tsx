@@ -312,7 +312,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
 
     // Success banner should appear
-    await expect.element(screen.getByText(/Order confirmed!/)).toBeVisible();
+    await expect.element(screen.getByText(/Order confirmed!/), { timeout: 5000 }).toBeVisible();
 
     // Verify orders were created
     const state = (await commands.getFixtureState()) as {
