@@ -164,13 +164,11 @@ export function BundleCardBase({
   const overageDisplay =
     displayMode === 'linft'
       ? (() => {
-          // Convert sqft overage to linft if needed
-          const overageLinft =
-            items.length === 1
-              ? overage / (items[0].product.properties.width_inches / 12)
-              : overage;
-          const rounded = Math.round(overageLinft * 10) / 10;
-          return rounded <= 0 ? 'no waste' : `${formatNumber(rounded, 1)} ft overage`;
+          // overage is already in linft for linft-mode bundles
+          const rounded = Math.round(overage * 10) / 10;
+          return rounded <= 0
+            ? `${formatNumber(totalLinft, 0)} ft delivered — no waste`
+            : `${formatNumber(totalLinft, 0)} ft delivered — ${formatNumber(rounded, 1)} ft overage`;
         })()
       : (() => {
           const rounded = Math.round(overage * 10) / 10;
@@ -183,17 +181,22 @@ export function BundleCardBase({
     <div className="bg-white border border-zinc-200 rounded-lg p-4 space-y-3">
       {/* Pill badges */}
       {(isBestMargin || isLeastWaste) && (
-        <div className="flex gap-1.5">
-          {isBestMargin && (
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
-              Best Margin
-            </span>
-          )}
-          {isLeastWaste && (
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">
-              Least Waste
-            </span>
-          )}
+        <div className="space-y-1">
+          <div className="flex gap-1.5">
+            {isBestMargin && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
+                Best Margin
+              </span>
+            )}
+            {isLeastWaste && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">
+                Least Waste
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-400">
+            Best Margin = lowest cost bundle &middot; Least Waste = least overage
+          </p>
         </div>
       )}
 

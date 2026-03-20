@@ -292,7 +292,7 @@ function SearchByUoMPanel({
               : 'text-zinc-600 hover:text-zinc-900'
           }`}
         >
-          Sqft
+          Sq ft
         </button>
       </div>
 
@@ -781,7 +781,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
                       htmlFor="field-sell-price"
                       className="block text-sm font-medium text-zinc-700 mb-1"
                     >
-                      Sell price per each ($)
+                      Sell price per roll ($)
                     </label>
                     <input
                       id="field-sell-price"

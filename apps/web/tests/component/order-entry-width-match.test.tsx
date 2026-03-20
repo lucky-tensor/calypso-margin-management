@@ -77,14 +77,14 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await commands.resetFixtureState();
   });
 
-  test('Search by UoM has a Linear ft / Sqft toggle', async () => {
+  test('Search by UoM has a Linear ft / Sq ft toggle', async () => {
     await commands.setFixtureState({ state: { products: ALL_PRODUCTS } });
 
     const screen = render(<OrderEntry />);
     await switchToSearchByUoM(screen);
 
     await expect.element(screen.getByRole('button', { name: 'Linear ft' })).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Sqft' })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Sq ft' })).toBeVisible();
   });
 
   test('Linear ft mode shows width dropdown populated from distinct width_inches values', async () => {
@@ -152,8 +152,8 @@ describe('OrderEntry — Search by UoM / Linear ft mode', () => {
     await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
     await expect.element(screen.getByText('WM-48-10FT')).toBeVisible();
     await expect.element(screen.getByText(/20.*rolls/)).toBeVisible();
-    // 20 rolls * 10 ft = 200 ft
-    await expect.element(screen.getByText(/200.*ft/)).toBeVisible();
+    // 20 rolls * 10 ft = 200 ft delivered — no waste
+    await expect.element(screen.getByText(/200 ft delivered/)).toBeVisible();
     await expect.element(screen.getByText(/no waste/)).toBeVisible();
   });
 
