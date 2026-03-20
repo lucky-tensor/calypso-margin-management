@@ -14,6 +14,11 @@ const validForm = {
   primary_cost_basis: 'each' as const,
   margin_target: '25',
   margin_floor: '15',
+  safety_stock_eaches: '10',
+  reorder_point_eaches: '30',
+  reorder_qty_eaches: '',
+  lead_time_days: '',
+  pending_order_weight: '0.7',
 };
 
 describe('validateForm', () => {

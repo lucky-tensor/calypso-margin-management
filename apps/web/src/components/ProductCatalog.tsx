@@ -4,6 +4,7 @@ import { Plus, Pencil, PackagePlus, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { StockAdjustmentDialog } from './StockAdjustmentDialog';
 import type { StockAdjustmentTarget } from './StockAdjustmentDialog';
+import { RoleGate } from './RoleGate';
 
 const COST_BASIS_OPTIONS: { value: CostBasis; label: string }[] = [
   { value: 'each', label: 'Each' },
@@ -30,6 +31,12 @@ interface FormData {
   primary_cost_basis: CostBasis;
   margin_target: string;
   margin_floor: string;
+  // Inventory fields
+  safety_stock_eaches: string;
+  reorder_point_eaches: string;
+  reorder_qty_eaches: string;
+  lead_time_days: string;
+  pending_order_weight: string;
 }
 
 const EMPTY_FORM: FormData = {
@@ -45,6 +52,11 @@ const EMPTY_FORM: FormData = {
   primary_cost_basis: 'each',
   margin_target: '25',
   margin_floor: '15',
+  safety_stock_eaches: '0',
+  reorder_point_eaches: '0',
+  reorder_qty_eaches: '',
+  lead_time_days: '',
+  pending_order_weight: '0.7',
 };
 
 function formDataFromProduct(p: ProductProperties): FormData {
@@ -61,6 +73,15 @@ function formDataFromProduct(p: ProductProperties): FormData {
     primary_cost_basis: p.primary_cost_basis,
     margin_target: String(p.margin_target),
     margin_floor: String(p.margin_floor),
+    safety_stock_eaches: String(p.safety_stock_eaches ?? 0),
+    reorder_point_eaches: String(p.reorder_point_eaches ?? 0),
+    reorder_qty_eaches:
+      p.reorder_qty_eaches !== null && p.reorder_qty_eaches !== undefined
+        ? String(p.reorder_qty_eaches)
+        : '',
+    lead_time_days:
+      p.lead_time_days !== null && p.lead_time_days !== undefined ? String(p.lead_time_days) : '',
+    pending_order_weight: String(p.pending_order_weight ?? 0.7),
   };
 }
 
@@ -86,6 +107,18 @@ export function validateForm(form: FormData): string[] {
   if (mf < 0) errors.push('Margin floor must be >= 0');
   if (mt <= mf) errors.push('Margin target must be greater than margin floor');
 
+  // Inventory validation
+  const safetyStock = Number(form.safety_stock_eaches);
+  const reorderPoint = Number(form.reorder_point_eaches);
+
+  if (form.safety_stock_eaches !== '' && safetyStock < 0) errors.push('Safety stock must be >= 0');
+  if (form.reorder_point_eaches !== '' && reorderPoint < safetyStock)
+    errors.push('Reorder point must be >= safety stock');
+
+  const pow = Number(form.pending_order_weight);
+  if (form.pending_order_weight !== '' && (pow < 0 || pow > 1))
+    errors.push('Pending order weight must be between 0.0 and 1.0');
+
   return errors;
 }
 
@@ -103,6 +136,11 @@ function formDataToPayload(form: FormData): Partial<ProductProperties> {
     primary_cost_basis: form.primary_cost_basis,
     margin_target: Number(form.margin_target),
     margin_floor: Number(form.margin_floor),
+    safety_stock_eaches: Number(form.safety_stock_eaches) || 0,
+    reorder_point_eaches: Number(form.reorder_point_eaches) || 0,
+    reorder_qty_eaches: form.reorder_qty_eaches ? Number(form.reorder_qty_eaches) : null,
+    lead_time_days: form.lead_time_days ? Number(form.lead_time_days) : null,
+    pending_order_weight: Number(form.pending_order_weight) || 0.7,
   };
 }
 
@@ -110,10 +148,12 @@ function ProductModal({
   editingProduct,
   onClose,
   onSaved,
+  onAdjustStock,
 }: {
   editingProduct: Product | null;
   onClose: () => void;
   onSaved: () => void;
+  onAdjustStock?: (product: Product) => void;
 }) {
   const [form, setForm] = useState<FormData>(
     editingProduct ? formDataFromProduct(editingProduct.properties) : { ...EMPTY_FORM },
@@ -123,6 +163,13 @@ function ProductModal({
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAdjustStock = () => {
+    if (editingProduct && onAdjustStock) {
+      onClose();
+      onAdjustStock(editingProduct);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -362,6 +409,130 @@ function ProductModal({
             </div>
           </div>
 
+          {/* Inventory Settings — only visible to inventory_manager and admin */}
+          <RoleGate role="inventory_manager">
+            <div className="border-t border-zinc-200 pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-800">Inventory Settings</h3>
+                {editingProduct && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-zinc-500">
+                      Current stock:{' '}
+                      <span className="font-medium text-zinc-800">
+                        {editingProduct.properties.qty_on_hand_eaches ?? 0} eaches
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAdjustStock}
+                      className="px-3 py-1.5 text-xs font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-md transition-colors"
+                    >
+                      Adjust Stock
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="field-safety-stock"
+                    className="block text-sm font-medium text-zinc-700 mb-1"
+                  >
+                    Safety Stock (eaches)
+                  </label>
+                  <input
+                    id="field-safety-stock"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.safety_stock_eaches}
+                    onChange={(e) => handleChange('safety_stock_eaches', e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="field-reorder-point"
+                    className="block text-sm font-medium text-zinc-700 mb-1"
+                  >
+                    Reorder Point (eaches)
+                  </label>
+                  <input
+                    id="field-reorder-point"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.reorder_point_eaches}
+                    onChange={(e) => handleChange('reorder_point_eaches', e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="field-reorder-qty"
+                    className="block text-sm font-medium text-zinc-700 mb-1"
+                  >
+                    Reorder Qty (eaches) <span className="text-zinc-400 font-normal">optional</span>
+                  </label>
+                  <input
+                    id="field-reorder-qty"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.reorder_qty_eaches}
+                    onChange={(e) => handleChange('reorder_qty_eaches', e.target.value)}
+                    placeholder="—"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="field-lead-time"
+                    className="block text-sm font-medium text-zinc-700 mb-1"
+                  >
+                    Lead Time (days) <span className="text-zinc-400 font-normal">optional</span>
+                  </label>
+                  <input
+                    id="field-lead-time"
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.lead_time_days}
+                    onChange={(e) => handleChange('lead_time_days', e.target.value)}
+                    placeholder="—"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="field-pending-order-weight"
+                  className="block text-sm font-medium text-zinc-700 mb-1"
+                >
+                  Pending Order Weight (0.0–1.0)
+                </label>
+                <input
+                  id="field-pending-order-weight"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  value={form.pending_order_weight}
+                  onChange={(e) => handleChange('pending_order_weight', e.target.value)}
+                  placeholder="0.7"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:ring-2 focus:ring-zinc-900 focus:border-zinc-900 outline-none text-sm"
+                />
+              </div>
+            </div>
+          </RoleGate>
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -444,7 +615,7 @@ export const ProductCatalog: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-800"></div>
       </div>
     );
   }
@@ -546,6 +717,7 @@ export const ProductCatalog: React.FC = () => {
           editingProduct={editingProduct}
           onClose={closeModal}
           onSaved={fetchProducts}
+          onAdjustStock={openAdjust}
         />
       )}
 
