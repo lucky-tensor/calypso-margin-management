@@ -76,7 +76,7 @@ afterAll(async () => {
 // Helper: create a standard test product (Scenario 1 from PRD)
 // ---------------------------------------------------------------------------
 
-async function createTestProduct() {
+async function createTestProduct(overrides: Record<string, unknown> = {}) {
   const res = await fetch(`${BASE}/api/products`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: authCookie },
@@ -93,6 +93,12 @@ async function createTestProduct() {
       primary_cost_basis: 'each',
       margin_target: 25,
       margin_floor: 15,
+      // Sufficient stock so the gate does not block normal orders
+      qty_on_hand_eaches: 1000,
+      safety_stock_eaches: 10,
+      reorder_point_eaches: 50,
+      pending_order_weight: 1.0,
+      ...overrides,
     }),
   });
   expect(res.status).toBe(201);
@@ -246,6 +252,10 @@ test('POST /api/orders snapshots margin_target and margin_floor from product', a
       primary_cost_basis: 'each',
       margin_target: 30,
       margin_floor: 20,
+      qty_on_hand_eaches: 1000,
+      safety_stock_eaches: 10,
+      reorder_point_eaches: 50,
+      pending_order_weight: 1.0,
     }),
   });
   expect(productRes.status).toBe(201);
@@ -950,6 +960,127 @@ test('PATCH /api/orders/:id with malformed JSON returns error (not 500)', async 
   expect(patchRes.status).toBe(400);
   const body = await patchRes.json();
   expect(body.error).toContain('Invalid JSON');
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/orders — stock gate tests
+// ---------------------------------------------------------------------------
+
+test('POST /api/orders blocked when projected effective <= safety_stock returns 400', async () => {
+  // Product: qty_on_hand=10, safety_stock=10, reorder_point=20, pending_order_weight=1.0
+  // With 0 existing orders: effective = 10 - 0 - 0 = 10
+  // New order qty_eaches=1: projected_effective = 10 - 0 - 1*1.0 = 9 <= safety_stock(10) → blocked
+  const product = await createTestProduct({
+    qty_on_hand_eaches: 10,
+    safety_stock_eaches: 10,
+    reorder_point_eaches: 20,
+    pending_order_weight: 1.0,
+  });
+
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Stock Block Customer',
+      product_id: product.id,
+      quantity: 1,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.error).toBeTruthy();
+  expect(body.stock_position).toBeTruthy();
+});
+
+test('POST /api/orders allowed with warning when projected effective <= reorder_point returns 201 with stock_warning', async () => {
+  // Product: qty_on_hand=25, safety_stock=5, reorder_point=20, pending_order_weight=1.0
+  // With 0 existing orders: effective = 25 - 0 - 0 = 25
+  // New order qty_eaches=10: projected_effective = 25 - 0 - 10*1.0 = 15 > safety_stock(5) but <= reorder_point(20) → warning
+  const product = await createTestProduct({
+    qty_on_hand_eaches: 25,
+    safety_stock_eaches: 5,
+    reorder_point_eaches: 20,
+    pending_order_weight: 1.0,
+  });
+
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Stock Warning Customer',
+      product_id: product.id,
+      quantity: 10,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(201);
+  const order = await res.json();
+  expect(order.properties.stock_warning).toBeTruthy();
+  expect(order.properties.stock_position_at_creation).toBeTruthy();
+});
+
+test('POST /api/orders allowed silently when projected effective > reorder_point returns 201 without warning', async () => {
+  // Product: qty_on_hand=1000, safety_stock=10, reorder_point=50, pending_order_weight=1.0
+  // New order qty_eaches=5: projected_effective = 1000 - 0 - 5 = 995 > reorder_point(50) → healthy
+  const product = await createTestProduct({
+    qty_on_hand_eaches: 1000,
+    safety_stock_eaches: 10,
+    reorder_point_eaches: 50,
+    pending_order_weight: 1.0,
+  });
+
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Healthy Stock Customer',
+      product_id: product.id,
+      quantity: 5,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(201);
+  const order = await res.json();
+  expect(order.properties.stock_warning).toBeNull();
+  expect(order.properties.stock_position_at_creation).toBeTruthy();
+});
+
+test('POST /api/orders includes stock_position_at_creation snapshot in order properties', async () => {
+  // Product: qty_on_hand=100, safety_stock=10, reorder_point=30, pending_order_weight=1.0
+  const product = await createTestProduct({
+    qty_on_hand_eaches: 100,
+    safety_stock_eaches: 10,
+    reorder_point_eaches: 30,
+    pending_order_weight: 1.0,
+  });
+
+  const res = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Snapshot Customer',
+      product_id: product.id,
+      quantity: 5,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(res.status).toBe(201);
+  const order = await res.json();
+
+  const snap = order.properties.stock_position_at_creation;
+  expect(snap).toBeTruthy();
+  expect(typeof snap.qty_on_hand).toBe('number');
+  expect(typeof snap.effective_available).toBe('number');
+  expect(typeof snap.safety_stock).toBe('number');
+  expect(typeof snap.reorder_point).toBe('number');
+  expect(snap.qty_on_hand).toBe(100);
+  expect(snap.safety_stock).toBe(10);
+  expect(snap.reorder_point).toBe(30);
 });
 
 // ---------------------------------------------------------------------------
