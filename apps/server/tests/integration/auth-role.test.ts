@@ -96,6 +96,31 @@ test('POST /api/auth/register response includes role field for new user', async 
   expect(body.user.role).toBe('sales_rep');
 });
 
+test('POST /api/auth/register response includes display_name defaulting to username', async () => {
+  const username = `display_name_default_test_${Date.now()}`;
+  const res = await fetch(`${BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: 'testpass123' }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.user.display_name).toBe(username);
+});
+
+test('POST /api/auth/register uses provided display_name when supplied', async () => {
+  const username = `display_name_custom_test_${Date.now()}`;
+  const displayName = 'Custom Display Name';
+  const res = await fetch(`${BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: 'testpass123', display_name: displayName }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.user.display_name).toBe(displayName);
+});
+
 test('POST /api/auth/login response includes role field', async () => {
   // Register then login
   const username = `login_role_test_${Date.now()}`;
@@ -113,6 +138,25 @@ test('POST /api/auth/login response includes role field', async () => {
   expect(loginRes.status).toBe(200);
   const body = await loginRes.json();
   expect(body.user.role).toBe('sales_rep');
+});
+
+test('POST /api/auth/login response includes display_name', async () => {
+  const username = `login_display_name_test_${Date.now()}`;
+  const displayName = 'Login Display Name';
+  await fetch(`${BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: 'testpass123', display_name: displayName }),
+  });
+
+  const loginRes = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: 'testpass123' }),
+  });
+  expect(loginRes.status).toBe(200);
+  const body = await loginRes.json();
+  expect(body.user.display_name).toBe(displayName);
 });
 
 test('GET /api/auth/me returns role in user payload for sales_rep', async () => {
@@ -135,6 +179,24 @@ test('GET /api/auth/me returns role in user payload for inventory_manager', asyn
   expect(body.user.id).toBeTruthy();
   expect(body.user.username).toBeTruthy();
   expect(body.user.role).toBe('inventory_manager');
+});
+
+test('GET /api/auth/me returns display_name for sales_rep', async () => {
+  const res = await fetch(`${BASE}/api/auth/me`, {
+    headers: { Cookie: salesRepCookie },
+  });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.user.display_name).toBeTruthy();
+});
+
+test('GET /api/auth/me returns display_name for inventory_manager', async () => {
+  const res = await fetch(`${BASE}/api/auth/me`, {
+    headers: { Cookie: inventoryManagerCookie },
+  });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.user.display_name).toBe('Test Inventory Manager');
 });
 
 // ---------------------------------------------------------------------------
