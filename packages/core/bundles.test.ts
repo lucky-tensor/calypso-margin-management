@@ -402,8 +402,39 @@ describe('findBundlesByWidth', () => {
 
     const result = findBundlesByWidth(products, 48, 0);
 
-    // ceil(0/10) = 0 eaches, should return bundles with 0 quantity
     expect(result).toBeDefined();
+  });
+
+  it('no bundle item ever has quantity === 0 (regression)', () => {
+    // N=2 case: when one product alone covers the target, the other gets qty=0.
+    // The engine must strip those items rather than emitting them.
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 48, length_inches: 168, cost_per_each: 25 }),
+    ];
+
+    const result = findBundlesByWidth(products, 48, 2400, { maxBundles: 100 });
+    expect(result.length).toBeGreaterThan(0);
+    for (const bundle of result) {
+      for (const item of bundle.items) {
+        expect(item.quantity).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('no bundle item ever has quantity === 0 in sqft mode (regression)', () => {
+    const products = [
+      makeProduct('A', { width_inches: 48, length_inches: 120, cost_per_each: 20 }),
+      makeProduct('B', { width_inches: 60, length_inches: 120, cost_per_each: 25 }),
+    ];
+
+    const result = findBundlesBySqft(products, 400, { maxBundles: 100 });
+    expect(result.length).toBeGreaterThan(0);
+    for (const bundle of result) {
+      for (const item of bundle.items) {
+        expect(item.quantity).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('products with very small dimensions (1 inch) work correctly', () => {

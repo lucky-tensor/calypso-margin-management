@@ -80,7 +80,7 @@ const productB = makeProduct('prod-b', 'Beta Mesh', 'SKU-B', 20.0);
 
 describe('Linft bundle card shows total delivered length alongside overage', () => {
   test('linft bundle with overage shows "X ft delivered — Y ft overage"', async () => {
-    // 20 rolls * 10 ft = 200 ft totalLinft, overage = 5 (already in linft)
+    // 20 eaches * 10 ft = 200 ft totalLinft, overage = 5 (already in linft)
     const bundle = makeBundle([{ product: productA, quantity: 20 }], 5);
 
     render(
@@ -211,11 +211,11 @@ describe('OrderEntry — linft bundle delivered length (integration)', () => {
 
     const screen = render(<OrderEntry />);
 
-    // Switch to Search by UoM
-    await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
-    await screen.getByRole('button', { name: 'Search by UoM' }).click();
+    // Switch to Order Optimizer
+    await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
+    await screen.getByRole('button', { name: 'Order Optimizer' }).click();
 
-    // 205 ft requested, 10 ft per roll -> 21 rolls, 210 ft delivered, 5 ft overage
+    // 205 ft requested, 10 ft per each -> 21 eaches, 210 ft delivered, 5 ft overage
     await screen.getByLabelText('Width').selectOptions('48');
     await screen.getByLabelText('Total Length (ft)').fill('205');
 

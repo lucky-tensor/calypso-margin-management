@@ -348,13 +348,13 @@ describe('OrderEntry — Specific Product mode', () => {
     expect(marginEl.closest('.bg-emerald-50')).not.toBeNull();
   });
 
-  test('mode selector shows exactly two tabs: "Specific Product" and "Search by UoM"', async () => {
+  test('mode selector shows exactly two tabs: "Specific Product" and "Order Optimizer"', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
     const screen = render(<OrderEntry />);
 
     await expect.element(screen.getByRole('button', { name: 'Specific Product' })).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
 
     // Old tabs should not exist
     await expect
@@ -362,5 +362,8 @@ describe('OrderEntry — Specific Product mode', () => {
       .not.toBeInTheDocument();
     await expect.element(screen.getByRole('button', { name: 'By Width' })).not.toBeInTheDocument();
     await expect.element(screen.getByRole('button', { name: 'By Area' })).not.toBeInTheDocument();
+    await expect
+      .element(screen.getByRole('button', { name: 'Search by UoM' }))
+      .not.toBeInTheDocument();
   });
 });

@@ -79,8 +79,8 @@ const productC: Product = {
 const ALL_PRODUCTS = [productA, productB, productC];
 
 async function switchToSearchByUoMSqft(screen: ReturnType<typeof render>) {
-  await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
-  await screen.getByRole('button', { name: 'Search by UoM' }).click();
+  await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
+  await screen.getByRole('button', { name: 'Order Optimizer' }).click();
   // Switch to Sqft toggle
   await screen.getByRole('button', { name: 'Sq ft' }).click();
 }
@@ -113,17 +113,17 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll -> ceil(500/40) = 13 rolls
-    // productB: 20 sqft/roll -> ceil(500/20) = 25 rolls
-    // productC: 30 sqft/roll -> ceil(500/30) = 17 rolls
+    // productA: 40 sqft/each -> ceil(500/40) = 13 eaches
+    // productB: 20 sqft/each -> ceil(500/20) = 25 eaches
+    // productC: 30 sqft/each -> ceil(500/30) = 17 eaches
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    const rolls13 = await page.getByText(/13.*rolls/).all();
-    expect(rolls13.length).toBeGreaterThan(0);
-    const rolls25 = await page.getByText(/25.*rolls/).all();
-    expect(rolls25.length).toBeGreaterThan(0);
-    const rolls17 = await page.getByText(/17.*rolls/).all();
-    expect(rolls17.length).toBeGreaterThan(0);
+    const eaches13 = await page.getByText(/13.*eaches/).all();
+    expect(eaches13.length).toBeGreaterThan(0);
+    const eaches25 = await page.getByText(/25.*eaches/).all();
+    expect(eaches25.length).toBeGreaterThan(0);
+    const eaches17 = await page.getByText(/17.*eaches/).all();
+    expect(eaches17.length).toBeGreaterThan(0);
   });
 
   test('overage is calculated and displayed correctly', async () => {
@@ -132,7 +132,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll -> ceil(500/40) = 13 rolls -> 520 sqft delivered -> 20 sqft overage
+    // productA: 40 sqft/each -> ceil(500/40) = 13 eaches -> 520 sqft delivered -> 20 sqft overage
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
     await expect.element(screen.getByText(/520.*sqft delivered/)).toBeVisible();
@@ -145,7 +145,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoMSqft(screen);
 
-    // productA: 40 sqft/roll -> ceil(400/40) = 10 rolls -> 400 sqft delivered -> 0 overage
+    // productA: 40 sqft/each -> ceil(400/40) = 10 eaches -> 400 sqft delivered -> 0 overage
     await screen.getByLabelText('Total Area (sqft)').fill('400');
 
     await expect.element(screen.getByText(/400.*sqft delivered/)).toBeVisible();
@@ -153,7 +153,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     await expect.element(screen.getByText(/sqft overage/)).not.toBeInTheDocument();
   });
 
-  test('bundle cards show roll dimensions', async () => {
+  test('bundle cards show each dimensions', async () => {
     await commands.setFixtureState({ state: { products: [productA] } });
 
     const screen = render(<OrderEntry />);
@@ -161,8 +161,8 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
 
     await screen.getByLabelText('Total Area (sqft)').fill('500');
 
-    // productA: 48" x 120" rolls (10 ft)
-    await expect.element(screen.getByText(/48.*120.*rolls/)).toBeVisible();
+    // productA: 48" x 120" eaches (10 ft)
+    await expect.element(screen.getByText(/48.*120.*eaches/)).toBeVisible();
   });
 
   test('multi-product bundle card renders one sell price input per item', async () => {
@@ -191,7 +191,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     const screen = render(<OrderEntry />);
     await switchToSearchByUoMSqft(screen);
 
-    // productA: 13 rolls @ $32 cost = $416; sell $50 -> rev = 13*50 = $650; margin = (650-416)/650 ≈ 36%
+    // productA: 13 eaches @ $32 cost = $416; sell $50 -> rev = 13*50 = $650; margin = (650-416)/650 ≈ 36%
     await screen.getByLabelText('Total Area (sqft)').fill('500');
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
@@ -205,7 +205,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $50 -> rev = $650; margin ≈ 36% -> healthy
+    // 13 eaches @ $32 = $416 cost; sell $50 -> rev = $650; margin ≈ 36% -> healthy
     await screen.getByLabelText('Total Area (sqft)').fill('500');
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('50');
 
@@ -221,7 +221,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $38 -> rev = $494; margin = (494-416)/494 ≈ 15.8% -> warning
+    // 13 eaches @ $32 = $416 cost; sell $38 -> rev = $494; margin = (494-416)/494 ≈ 15.8% -> warning
     await screen.getByLabelText('Total Area (sqft)').fill('500');
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('38');
 
@@ -237,7 +237,7 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
     await switchToSearchByUoMSqft(screen);
 
     // productA: margin_target=25, margin_floor=15
-    // 13 rolls @ $32 = $416 cost; sell $36 -> rev = $468; margin = (468-416)/468 ≈ 11.1% -> critical
+    // 13 eaches @ $32 = $416 cost; sell $36 -> rev = $468; margin = (468-416)/468 ≈ 11.1% -> critical
     await screen.getByLabelText('Total Area (sqft)').fill('500');
     await screen.getByLabelText('Sell price for 4x4 Welded Wire Mesh').fill('36');
 
@@ -285,8 +285,8 @@ describe('OrderEntry — Search by UoM / Sqft mode', () => {
   test('Confirm Orders on a multi-item bundle creates orders via API and shows success banner', async () => {
     // Use two products that will produce a multi-product bundle
     // productA: 40 sqft/roll, productB: 20 sqft/roll
-    // For 50 sqft, single-product: A needs ceil(50/40)=2 rolls (80 sqft, 30 overage)
-    //                               B needs ceil(50/20)=3 rolls (60 sqft, 10 overage)
+    // For 50 sqft, single-product: A needs ceil(50/40)=2 eaches (80 sqft, 30 overage)
+    //                               B needs ceil(50/20)=3 eaches (60 sqft, 10 overage)
     // Multi-product: 1 A (40 sqft) + 1 B (20 sqft) = 60 sqft, 10 overage — same as B alone
     await commands.setFixtureState({ state: { products: [productA, productB] } });
 

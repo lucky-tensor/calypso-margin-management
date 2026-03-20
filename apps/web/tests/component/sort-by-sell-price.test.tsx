@@ -68,8 +68,8 @@ const productB: Product = {
 const PRODUCTS = [productA, productB];
 
 async function switchToSearchByUoM(screen: ReturnType<typeof render>) {
-  await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
-  await screen.getByRole('button', { name: 'Search by UoM' }).click();
+  await expect.element(screen.getByRole('button', { name: 'Order Optimizer' })).toBeVisible();
+  await screen.getByRole('button', { name: 'Order Optimizer' }).click();
 }
 
 /** Wait for bundles to render by checking that at least one sell price input for Alpha exists. */
