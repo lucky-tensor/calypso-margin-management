@@ -68,10 +68,10 @@ describe('BundleCardBase pill badges', () => {
       />,
     );
 
-    await expect.element(page.getByText('Best Margin')).toBeVisible();
-    await expect.element(page.getByText('Least Waste')).not.toBeInTheDocument();
+    await expect.element(page.getByText('Best Margin', { exact: true })).toBeVisible();
+    await expect.element(page.getByText('Least Waste', { exact: true })).not.toBeInTheDocument();
 
-    const pill = page.getByText('Best Margin').element();
+    const pill = page.getByText('Best Margin', { exact: true }).element();
     expect(pill.classList.contains('bg-emerald-100')).toBe(true);
     expect(pill.classList.contains('text-emerald-700')).toBe(true);
   });
@@ -89,10 +89,10 @@ describe('BundleCardBase pill badges', () => {
       />,
     );
 
-    await expect.element(page.getByText('Least Waste')).toBeVisible();
-    await expect.element(page.getByText('Best Margin')).not.toBeInTheDocument();
+    await expect.element(page.getByText('Least Waste', { exact: true })).toBeVisible();
+    await expect.element(page.getByText('Best Margin', { exact: true })).not.toBeInTheDocument();
 
-    const pill = page.getByText('Least Waste').element();
+    const pill = page.getByText('Least Waste', { exact: true }).element();
     expect(pill.classList.contains('bg-indigo-100')).toBe(true);
     expect(pill.classList.contains('text-indigo-700')).toBe(true);
   });
@@ -110,8 +110,8 @@ describe('BundleCardBase pill badges', () => {
       />,
     );
 
-    await expect.element(page.getByText('Best Margin')).toBeVisible();
-    await expect.element(page.getByText('Least Waste')).toBeVisible();
+    await expect.element(page.getByText('Best Margin', { exact: true })).toBeVisible();
+    await expect.element(page.getByText('Least Waste', { exact: true })).toBeVisible();
   });
 
   test('neither pill prop set: no pills rendered', async () => {
@@ -125,8 +125,8 @@ describe('BundleCardBase pill badges', () => {
       />,
     );
 
-    await expect.element(page.getByText('Best Margin')).not.toBeInTheDocument();
-    await expect.element(page.getByText('Least Waste')).not.toBeInTheDocument();
+    await expect.element(page.getByText('Best Margin', { exact: true })).not.toBeInTheDocument();
+    await expect.element(page.getByText('Least Waste', { exact: true })).not.toBeInTheDocument();
   });
 
   test('3 cards: only bundle with lowest costTotal gets Best Margin, only lowest overage gets Least Waste', async () => {
@@ -166,11 +166,11 @@ describe('BundleCardBase pill badges', () => {
     );
 
     // Exactly 1 Best Margin pill (bundleB)
-    const bestMarginPills = await page.getByText('Best Margin').all();
+    const bestMarginPills = await page.getByText('Best Margin', { exact: true }).all();
     expect(bestMarginPills).toHaveLength(1);
 
     // Exactly 1 Least Waste pill (bundleA)
-    const leastWastePills = await page.getByText('Least Waste').all();
+    const leastWastePills = await page.getByText('Least Waste', { exact: true }).all();
     expect(leastWastePills).toHaveLength(1);
   });
 
@@ -203,8 +203,8 @@ describe('BundleCardBase pill badges', () => {
       </div>,
     );
 
-    const bestMarginPills = await page.getByText('Best Margin').all();
-    const leastWastePills = await page.getByText('Least Waste').all();
+    const bestMarginPills = await page.getByText('Best Margin', { exact: true }).all();
+    const leastWastePills = await page.getByText('Least Waste', { exact: true }).all();
 
     expect(bestMarginPills).toHaveLength(1);
     expect(leastWastePills).toHaveLength(1);
@@ -249,11 +249,11 @@ describe('BundleCardBase pill badges', () => {
     );
 
     // 3 Least Waste pills (all tie at overage=0)
-    const leastWastePills = await page.getByText('Least Waste').all();
+    const leastWastePills = await page.getByText('Least Waste', { exact: true }).all();
     expect(leastWastePills).toHaveLength(3);
 
     // 1 Best Margin pill (bundleB lowest cost)
-    const bestMarginPills = await page.getByText('Best Margin').all();
+    const bestMarginPills = await page.getByText('Best Margin', { exact: true }).all();
     expect(bestMarginPills).toHaveLength(1);
   });
 });
@@ -274,8 +274,8 @@ describe('Bundle pill badge logic in OrderEntry (integration)', () => {
       />,
     );
 
-    await expect.element(page.getByText('Best Margin')).not.toBeInTheDocument();
-    await expect.element(page.getByText('Least Waste')).not.toBeInTheDocument();
+    await expect.element(page.getByText('Best Margin', { exact: true })).not.toBeInTheDocument();
+    await expect.element(page.getByText('Least Waste', { exact: true })).not.toBeInTheDocument();
   });
 
   test('Best Margin pill shown even when no sell price entered (only based on costTotal)', async () => {
@@ -294,6 +294,6 @@ describe('Bundle pill badge logic in OrderEntry (integration)', () => {
     );
 
     // No price entered, but pill should still show
-    await expect.element(page.getByText('Best Margin')).toBeVisible();
+    await expect.element(page.getByText('Best Margin', { exact: true })).toBeVisible();
   });
 });

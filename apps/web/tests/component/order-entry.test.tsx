@@ -60,14 +60,14 @@ describe('OrderEntry — Specific Product mode', () => {
     await expect.element(screen.getByText(/Galvanized Steel/)).toBeVisible();
   });
 
-  test('sell price label reads "Sell price per each ($)"', async () => {
+  test('sell price label reads "Sell price per roll ($)"', async () => {
     await commands.setFixtureState({ state: { products: [fixtureProduct] } });
 
     const screen = render(<OrderEntry />);
 
     await waitAndSelectProduct(screen);
 
-    await expect.element(screen.getByLabelText('Sell price per each ($)')).toBeVisible();
+    await expect.element(screen.getByLabelText('Sell price per roll ($)')).toBeVisible();
   });
 
   test('default sell price on product selection is target-margin per-each rate', async () => {
@@ -78,7 +78,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
 
     // 32 / (1 - 0.25) = 42.666... => "42.67"
-    await expect.element(screen.getByLabelText('Sell price per each ($)')).toHaveValue(42.67);
+    await expect.element(screen.getByLabelText('Sell price per roll ($)')).toHaveValue(42.67);
   });
 
   test('entering quantity and UOM shows converted quantities in all three units', async () => {
@@ -89,7 +89,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // Default UOM is square_foot; 200 sqft = 5 eaches = 50 linear feet
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await expect.element(screen.getByText(/5.*units/)).toBeVisible();
     await expect.element(screen.getByText(/50.*lin ft/)).toBeVisible();
@@ -104,7 +104,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // With $42.67/each, sqftPerEach=40, linftPerEach=10:
     // pricePerSqft = 42.67 / 40 = 1.07, pricePerLinft = 42.67 / 10 = 4.27
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await expect.element(screen.getByText(/\$1\.07 \/ sqft/)).toBeVisible();
     await expect.element(screen.getByText(/\$4\.27 \/ linft/)).toBeVisible();
@@ -119,7 +119,7 @@ describe('OrderEntry — Specific Product mode', () => {
     // 200 sqft = 5 eaches; $42.67/each => revenue = 5 * 42.67 = 213.35
     // cost = 5 * 32 = 160; margin = (213.35 - 160) / 213.35 = 25%
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await expect.element(screen.getByText(/213\.35/)).toBeVisible();
     await expect.element(screen.getByText(/160/)).toBeVisible();
@@ -133,7 +133,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 200 sqft = 5 eaches at $50/each: Revenue = 250, Cost = 5 × 32 = 160, Margin = 90/250 = 36%
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('50');
+    await screen.getByLabelText('Sell price per roll ($)').fill('50');
 
     await expect.element(screen.getByText(/250/)).toBeVisible();
     await expect.element(screen.getByText(/160/)).toBeVisible();
@@ -148,7 +148,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 200 sqft = 5 eaches at $50/each → 36% margin — above 25% target → healthy/green
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('50');
+    await screen.getByLabelText('Sell price per roll ($)').fill('50');
 
     const marginSection = screen.getByText('36.0%');
     await expect.element(marginSection).toBeVisible();
@@ -164,7 +164,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 200 sqft = 5 eaches at $38/each: Revenue = 190, Cost = 160, Margin = 30/190 = 15.8% — between 15% floor and 25% target
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('38');
+    await screen.getByLabelText('Sell price per roll ($)').fill('38');
 
     const marginSection = screen.getByText('15.8%');
     await expect.element(marginSection).toBeVisible();
@@ -180,7 +180,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 200 sqft = 5 eaches at $36/each: Revenue = 180, Cost = 160, Margin = 20/180 = 11.1% — below 15% floor
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('36');
+    await screen.getByLabelText('Sell price per roll ($)').fill('36');
 
     const marginSection = screen.getByText('11.1%');
     await expect.element(marginSection).toBeVisible();
@@ -196,7 +196,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 100 sqft / 40 sqft per each = 2.5 eaches (fractional)
     await screen.getByLabelText('Quantity').fill('100');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     // ceil(2.5) = 3, 3 * 40 = 120 sqft; floor(2.5) = 2, 2 * 40 = 80 sqft
     await expect
@@ -214,7 +214,7 @@ describe('OrderEntry — Specific Product mode', () => {
 
     await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantity').fill('100');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await screen.getByRole('button', { name: /Round up to 3 eaches \(120 sqft\)/ }).click();
 
@@ -234,7 +234,7 @@ describe('OrderEntry — Specific Product mode', () => {
 
     await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantity').fill('100');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await screen.getByRole('button', { name: /Round down to 2 eaches \(80 sqft\)/ }).click();
 
@@ -255,7 +255,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await waitAndSelectProduct(screen);
     // 200 sqft = 5 eaches (integer) — no rounding buttons
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     await expect.element(screen.getByRole('button', { name: /Round up/ })).not.toBeInTheDocument();
     await expect
@@ -271,7 +271,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await screen.getByLabelText('Customer').fill('Acme Fencing Co');
     await waitAndSelectProduct(screen);
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('50');
+    await screen.getByLabelText('Sell price per roll ($)').fill('50');
 
     await screen.getByRole('button', { name: 'Confirm Order' }).click();
 
@@ -296,7 +296,7 @@ describe('OrderEntry — Specific Product mode', () => {
     await expect.element(screen.getByLabelText('Quantity')).toHaveAttribute('tabindex', '3');
     await expect.element(screen.getByLabelText('Unit of measure')).toHaveAttribute('tabindex', '4');
     await expect
-      .element(screen.getByLabelText('Sell price per each ($)'))
+      .element(screen.getByLabelText('Sell price per roll ($)'))
       .toHaveAttribute('tabindex', '5');
     await expect
       .element(screen.getByRole('button', { name: 'Confirm Order' }))
@@ -334,7 +334,7 @@ describe('OrderEntry — Specific Product mode', () => {
     // Margin = 53.35 / 213.35 = 24.9941...% — displays as "25.0%" but raw is below 25%
     // Fix 2 ensures evaluateMargin uses the rounded display value → healthy/green
     await screen.getByLabelText('Quantity').fill('200');
-    await screen.getByLabelText('Sell price per each ($)').fill('42.67');
+    await screen.getByLabelText('Sell price per roll ($)').fill('42.67');
 
     const marginSection = screen.getByText('25.0%');
     await expect.element(marginSection).toBeVisible();

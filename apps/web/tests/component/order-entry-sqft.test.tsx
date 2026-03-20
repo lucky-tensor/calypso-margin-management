@@ -70,7 +70,7 @@ async function switchToSearchByUoMSqft(screen: ReturnType<typeof render>) {
   await expect.element(screen.getByRole('button', { name: 'Search by UoM' })).toBeVisible();
   await screen.getByRole('button', { name: 'Search by UoM' }).click();
   // Switch to Sqft toggle
-  await screen.getByRole('button', { name: 'Sqft' }).click();
+  await screen.getByRole('button', { name: 'Sq ft' }).click();
 }
 
 describe('OrderEntry — Search by UoM / Sqft mode', () => {
