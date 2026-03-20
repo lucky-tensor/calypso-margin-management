@@ -130,7 +130,7 @@ function StockAdjustDialog({ entry, onClose, onSaved }: AdjustDialogProps) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between p-5 border-b border-zinc-200">
-          <h2 className="text-lg font-semibold text-zinc-900">Adjust Stock</h2>
+          <h2 className="text-lg font-semibold text-zinc-900">Stock Adjustment</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
@@ -143,6 +143,11 @@ function StockAdjustDialog({ entry, onClose, onSaved }: AdjustDialogProps) {
         <div className="px-5 pt-4 text-sm text-zinc-500">
           <span className="font-medium text-zinc-900">{entry.product_name}</span>{' '}
           <span className="font-mono text-xs">({entry.product_sku})</span>
+        </div>
+
+        <div className="px-5 pt-3 text-sm text-zinc-500">
+          Current balance{' '}
+          <span className="font-medium text-zinc-900">{entry.position.qty_on_hand} ea</span>
         </div>
 
         {error && (
@@ -344,6 +349,7 @@ export const InventoryDashboard: React.FC = () => {
         <h2 className="text-lg font-semibold text-zinc-900">Inventory</h2>
         <button
           onClick={() => setAdjustTarget(entries[0] ?? null)}
+          title="Adjust Stock"
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
         >
           <Plus size={16} />

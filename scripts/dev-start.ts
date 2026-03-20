@@ -17,10 +17,31 @@ import { migrate, seed, sql } from '../packages/db/index';
 import { createProxy } from '../apps/web/vite.config';
 
 const REPO_ROOT = join(import.meta.dir, '..');
-const API_PORT = Number(process.env.PORT ?? 31415);
-const WEB_PORT = Number(process.env.WEB_PORT ?? 5174);
+
+function findAvailablePort(start: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createHttpServer();
+    server.listen(start, '0.0.0.0', () => {
+      const port = (server.address() as { port: number }).port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') resolve(findAvailablePort(start + 1));
+      else reject(err);
+    });
+  });
+}
+
+const API_PORT = await findAvailablePort(Number(process.env.PORT ?? 31415));
+const WEB_PORT = await findAvailablePort(Number(process.env.WEB_PORT ?? 5174));
 
 async function main() {
+  const defaultApiPort = Number(process.env.PORT ?? 31415);
+  const defaultWebPort = Number(process.env.WEB_PORT ?? 5174);
+  if (API_PORT !== defaultApiPort)
+    console.log(`  ⚠  Port ${defaultApiPort} in use, API server on ${API_PORT}`);
+  if (WEB_PORT !== defaultWebPort)
+    console.log(`  ⚠  Port ${defaultWebPort} in use, dev server on ${WEB_PORT}`);
   console.log('\n⬡ Starting MeshMargin dev environment');
 
   // 1. Start ephemeral Postgres
