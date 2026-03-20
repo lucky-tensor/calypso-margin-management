@@ -344,6 +344,7 @@ export const InventoryDashboard: React.FC = () => {
         <h2 className="text-lg font-semibold text-zinc-900">Inventory</h2>
         <button
           onClick={() => setAdjustTarget(entries[0] ?? null)}
+          title="Adjust Stock"
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors"
         >
           <Plus size={16} />
