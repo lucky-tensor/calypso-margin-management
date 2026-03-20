@@ -46,8 +46,25 @@ const WIRE_MESH_PRODUCTS = [
 ] as const;
 
 const DEMO_USERS = [
-  { username: 'sales_rep', password: 'demo1234' },
-  { username: 'order_clerk', password: 'demo1234' },
+  {
+    username: 'sales_rep',
+    password: 'demo1234',
+    role: 'sales_rep',
+    display_name: 'Demo Sales Rep',
+  },
+  {
+    username: 'order_clerk',
+    password: 'demo1234',
+    role: 'sales_rep',
+    display_name: 'Demo Order Clerk',
+  },
+  {
+    username: 'inv_manager',
+    password: 'demo1234',
+    role: 'inventory_manager',
+    display_name: 'Demo Inventory Mgr',
+  },
+  { username: 'admin', password: 'demo1234', role: 'admin', display_name: 'Demo Admin' },
 ] as const;
 
 export interface SeedOptions {
@@ -114,14 +131,25 @@ async function seedProduct(db: postgres.Sql): Promise<void> {
 }
 
 async function seedUsers(db: postgres.Sql): Promise<void> {
-  for (const { username, password } of DEMO_USERS) {
+  for (const { username, password, role, display_name } of DEMO_USERS) {
     const existing = await db`
-      SELECT id FROM entities
+      SELECT id, properties FROM entities
       WHERE type = 'user' AND properties->>'username' = ${username}
     `;
 
     if (existing.length > 0) {
-      console.log(`[seed] User "${username}" already exists, skipping.`);
+      const user = existing[0];
+      const props = user.properties as Record<string, unknown>;
+      if (props.role === undefined || props.display_name === undefined) {
+        await db`
+          UPDATE entities
+          SET properties = properties || ${db.json({ role, display_name })}
+          WHERE id = ${user.id}
+        `;
+        console.log(`[seed] Updated demo user "${username}" with role and display_name.`);
+      } else {
+        console.log(`[seed] User "${username}" already exists, skipping.`);
+      }
       continue;
     }
 
@@ -130,6 +158,8 @@ async function seedUsers(db: postgres.Sql): Promise<void> {
     const properties = {
       username,
       password_hash: hash,
+      role,
+      display_name,
     };
 
     await db`
