@@ -11,6 +11,7 @@ const SERVER_ENTRY = 'apps/server/src/index.ts';
 
 let pg: PgContainer;
 let server: Subprocess;
+/** inventory_manager cookie — needed for product write operations (POST, PATCH) */
 let authCookie = '';
 let userId = '';
 let inventoryManagerCookie = '';
@@ -79,7 +80,7 @@ afterAll(async () => {
 async function createTestProduct(overrides: Record<string, unknown> = {}) {
   const res = await fetch(`${BASE}/api/products`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    headers: { 'Content-Type': 'application/json', Cookie: inventoryManagerCookie },
     body: JSON.stringify({
       name: '4x4 Welded Wire Mesh 10ga',
       sku: 'WM-4x4-10GA',
@@ -239,10 +240,10 @@ test('POST /api/orders sets created_by from authenticated user', async () => {
 });
 
 test('POST /api/orders snapshots margin_target and margin_floor from product', async () => {
-  // Create a product with custom margin thresholds
+  // Create a product with custom margin thresholds — requires inventory_manager
   const productRes = await fetch(`${BASE}/api/products`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    headers: { 'Content-Type': 'application/json', Cookie: inventoryManagerCookie },
     body: JSON.stringify({
       name: 'Custom Margin Product',
       sku: 'CMP-001',

@@ -1,5 +1,6 @@
 import { test, expect, beforeAll, afterAll } from 'vitest';
 import type { Subprocess } from 'bun';
+import postgres from 'postgres';
 import { startPostgres, type PgContainer } from '../helpers/pg-container';
 
 const PORT = 31417;
@@ -10,7 +11,10 @@ const SERVER_ENTRY = 'apps/server/src/index.ts';
 
 let pg: PgContainer;
 let server: Subprocess;
+/** inventory_manager cookie — used for write operations (POST, PATCH) */
 let authCookie = '';
+/** sales_rep cookie — used to test read-only access */
+let salesRepCookie = '';
 
 beforeAll(async () => {
   pg = await startPostgres();
@@ -24,15 +28,41 @@ beforeAll(async () => {
 
   await waitForServer(BASE);
 
-  // Register a test user and capture the session cookie
-  const username = `test_${Date.now()}`;
-  const res = await fetch(`${BASE}/api/auth/register`, {
+  // Register a sales_rep user via the API (default role)
+  const salesRepUsername = `sales_rep_${Date.now()}`;
+  const salesRes = await fetch(`${BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password: 'testpass123' }),
+    body: JSON.stringify({ username: salesRepUsername, password: 'testpass123' }),
   });
-  const setCookie = res.headers.get('set-cookie') ?? '';
-  authCookie = setCookie.split(';')[0];
+  const salesSetCookie = salesRes.headers.get('set-cookie') ?? '';
+  salesRepCookie = salesSetCookie.split(';')[0];
+
+  // Insert an inventory_manager user directly into the database
+  const sql = postgres(pg.url, { max: 1 });
+  const invMgrUsername = `inv_mgr_${Date.now()}`;
+  const invMgrId = crypto.randomUUID();
+  const invMgrHash = await Bun.password.hash('testpass123');
+  await sql`
+    INSERT INTO entities (id, type, properties, tenant_id)
+    VALUES (
+      ${invMgrId},
+      'user',
+      ${sql.json({ username: invMgrUsername, password_hash: invMgrHash, role: 'inventory_manager' })},
+      null
+    )
+  `;
+  await sql.end();
+
+  // Log in as the inventory_manager to get the auth cookie used for write operations
+  const invMgrRes = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: invMgrUsername, password: 'testpass123' }),
+  });
+  expect(invMgrRes.status).toBe(200);
+  const invMgrSetCookie = invMgrRes.headers.get('set-cookie') ?? '';
+  authCookie = invMgrSetCookie.split(';')[0];
 }, 60_000);
 
 afterAll(async () => {
@@ -367,6 +397,111 @@ test('GET /api/products returns inventory fields with defaults for all products'
     expect(typeof product.properties.reorder_point_eaches).toBe('number');
     expect(typeof product.properties.pending_order_weight).toBe('number');
   }
+});
+
+// ---------------------------------------------------------------------------
+// Role-gating tests (Issue #84)
+// ---------------------------------------------------------------------------
+
+test('sales_rep can GET /api/products (200)', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    headers: { Cookie: salesRepCookie },
+  });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(Array.isArray(body)).toBe(true);
+});
+
+test('sales_rep gets 403 on POST /api/products', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: salesRepCookie },
+    body: JSON.stringify({
+      name: 'Forbidden Product',
+      sku: 'FORB-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 10.0,
+      primary_cost_basis: 'each',
+    }),
+  });
+  expect(res.status).toBe(403);
+  const body = await res.json();
+  expect(body.error).toBe('Forbidden');
+});
+
+test('sales_rep gets 403 on PATCH /api/products/:id', async () => {
+  // First create a product as inventory_manager
+  const createRes = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Patch Target Product',
+      sku: 'PATCH-TGT-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 20.0,
+      primary_cost_basis: 'each',
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const created = await createRes.json();
+
+  // Attempt PATCH as sales_rep
+  const patchRes = await fetch(`${BASE}/api/products/${created.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: salesRepCookie },
+    body: JSON.stringify({ name: 'Hacked Name' }),
+  });
+  expect(patchRes.status).toBe(403);
+  const body = await patchRes.json();
+  expect(body.error).toBe('Forbidden');
+});
+
+test('inventory_manager can POST /api/products (201)', async () => {
+  const res = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Inv Mgr Product',
+      sku: 'INV-MGR-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 30.0,
+      primary_cost_basis: 'each',
+    }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.id).toBeTruthy();
+  expect(body.properties.name).toBe('Inv Mgr Product');
+});
+
+test('inventory_manager can PATCH /api/products/:id (200)', async () => {
+  // Create a product first
+  const createRes = await fetch(`${BASE}/api/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      name: 'Patch Me',
+      sku: 'PATCH-ME-001',
+      width_inches: 48,
+      length_inches: 120,
+      cost_per_each: 15.0,
+      primary_cost_basis: 'each',
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const created = await createRes.json();
+
+  const patchRes = await fetch(`${BASE}/api/products/${created.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ name: 'Patched Name' }),
+  });
+  expect(patchRes.status).toBe(200);
+  const updated = await patchRes.json();
+  expect(updated.properties.name).toBe('Patched Name');
 });
 
 // ---------------------------------------------------------------------------

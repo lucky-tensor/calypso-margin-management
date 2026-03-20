@@ -1,6 +1,6 @@
 import { sql } from 'db';
 import type { Product, ProductProperties, CostBasis } from 'core';
-import { getAuthenticatedUser, getCorsHeaders } from './auth';
+import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
 function validateProductProperties(
   props: Partial<ProductProperties>,
@@ -160,8 +160,12 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
     }
   }
 
-  // POST /api/products
+  // POST /api/products — requires inventory_manager or admin
   if (req.method === 'POST' && url.pathname === '/api/products') {
+    const roleGuard = requireRole('inventory_manager', 'admin');
+    const roleError = await roleGuard(req);
+    if (roleError) return roleError;
+
     try {
       const body = await req.json();
 
@@ -217,9 +221,13 @@ export async function handleProductsRequest(req: Request, url: URL): Promise<Res
     }
   }
 
-  // PATCH /api/products/:id
+  // PATCH /api/products/:id — requires inventory_manager or admin
   const patchMatch = url.pathname.match(/^\/api\/products\/([^/]+)$/);
   if (req.method === 'PATCH' && patchMatch) {
+    const roleGuard = requireRole('inventory_manager', 'admin');
+    const roleError = await roleGuard(req);
+    if (roleError) return roleError;
+
     const productId = patchMatch[1];
     try {
       const existing = await sql<
