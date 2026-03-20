@@ -37,7 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_relations_type ON relations(type);
 
 -- Seed required entity types
 INSERT INTO entity_types (type, schema) VALUES
-  ('user',    '{}'),
-  ('product', '{}'),
-  ('order',   '{}')
+  ('user',          '{}'),
+  ('product',       '{}'),
+  ('order',         '{}'),
+  ('inventory_txn', '{}')
 ON CONFLICT (type) DO NOTHING;
