@@ -211,6 +211,8 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         confirmed_at: null,
         cancelled_by: null,
         cancelled_at: null,
+        shipped_by: null,
+        shipped_at: null,
       };
 
       const id = crypto.randomUUID();
@@ -270,7 +272,8 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
       if (newStatus !== undefined && newStatus !== currentStatus) {
         const validTransitions: Record<string, string[]> = {
           draft: ['confirmed', 'cancelled'],
-          confirmed: ['cancelled'],
+          confirmed: ['shipped', 'cancelled'],
+          shipped: [],
           cancelled: [],
         };
 
@@ -304,6 +307,9 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         } else if (newStatus === 'cancelled') {
           updatedProps.cancelled_by = user.id;
           updatedProps.cancelled_at = now;
+        } else if (newStatus === 'shipped') {
+          updatedProps.shipped_by = user.id;
+          updatedProps.shipped_at = now;
         }
       }
 

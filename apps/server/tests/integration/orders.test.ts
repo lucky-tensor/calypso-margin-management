@@ -703,6 +703,134 @@ test('POST /api/orders returns 201 when margin equals exactly the floor (inclusi
 });
 
 // ---------------------------------------------------------------------------
+// PATCH /api/orders/:id — shipped status transitions
+// ---------------------------------------------------------------------------
+
+test('PATCH /api/orders/:id confirm then ship succeeds', async () => {
+  const product = await createTestProduct();
+
+  const createRes = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Ship Test Customer',
+      product_id: product.id,
+      quantity: 5,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const order = await createRes.json();
+
+  // Confirm the order
+  const confirmRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'confirmed' }),
+  });
+  expect(confirmRes.status).toBe(200);
+  const confirmed = await confirmRes.json();
+  expect(confirmed.properties.status).toBe('confirmed');
+
+  // Ship the confirmed order
+  const shipRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'shipped' }),
+  });
+  expect(shipRes.status).toBe(200);
+  const shipped = await shipRes.json();
+  expect(shipped.properties.status).toBe('shipped');
+  expect(shipped.properties.shipped_by).toBe(userId);
+  expect(shipped.properties.shipped_at).toBeTruthy();
+});
+
+test('PATCH /api/orders/:id ship a draft order fails (invalid transition)', async () => {
+  const product = await createTestProduct();
+
+  const createRes = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Draft Ship Fail Customer',
+      product_id: product.id,
+      quantity: 3,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const order = await createRes.json();
+  expect(order.properties.status).toBe('draft');
+
+  // Attempt to ship directly from draft — should fail
+  const shipRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'shipped' }),
+  });
+  expect(shipRes.status).toBe(400);
+  const body = await shipRes.json();
+  expect(body.error).toBeTruthy();
+});
+
+test('PATCH /api/orders/:id transition from shipped to any status fails', async () => {
+  const product = await createTestProduct();
+
+  const createRes = await fetch(`${BASE}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({
+      customer: 'Shipped Terminal Customer',
+      product_id: product.id,
+      quantity: 2,
+      unit_of_measure: 'each',
+      sell_price_per_unit: 45.0,
+    }),
+  });
+  expect(createRes.status).toBe(201);
+  const order = await createRes.json();
+
+  // Confirm then ship
+  await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'confirmed' }),
+  });
+  const shipRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'shipped' }),
+  });
+  expect(shipRes.status).toBe(200);
+
+  // Try shipped -> cancelled
+  const cancelRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'cancelled' }),
+  });
+  expect(cancelRes.status).toBe(400);
+
+  // Try shipped -> confirmed
+  const confirmRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'confirmed' }),
+  });
+  expect(confirmRes.status).toBe(400);
+
+  // Try shipped -> draft
+  const draftRes = await fetch(`${BASE}/api/orders/${order.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    body: JSON.stringify({ status: 'draft' }),
+  });
+  expect(draftRes.status).toBe(400);
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/orders — malformed body
 // ---------------------------------------------------------------------------
 
