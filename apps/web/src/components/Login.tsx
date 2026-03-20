@@ -13,7 +13,12 @@ interface DemoAccount {
 const DEMO_ACCOUNTS: DemoAccount[] = [
   { label: 'Sales Rep', role: 'sales_rep', username: 'sales_rep', password: 'demo1234' },
   { label: 'Order Clerk', role: 'order_clerk', username: 'order_clerk', password: 'demo1234' },
-  { label: 'Inv Manager', role: 'inventory_manager', username: 'inv_manager', password: 'demo1234' },
+  {
+    label: 'Inv Manager',
+    role: 'inventory_manager',
+    username: 'inv_manager',
+    password: 'demo1234',
+  },
   { label: 'Admin', role: 'admin', username: 'admin', password: 'demo1234' },
 ];
 
