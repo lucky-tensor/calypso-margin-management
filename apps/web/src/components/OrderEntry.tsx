@@ -89,6 +89,9 @@ function SearchByUoMPanel({
   const [sortKey, setSortKey] = useState<BundleSortKey>('price-sqft');
   const [creating, setCreating] = useState(false);
 
+  // Lifted item prices state: keyed by bundleKey, then by productId
+  const [allItemPrices, setAllItemPrices] = useState<Record<string, Record<string, string>>>({});
+
   // Distinct widths from product catalog, sorted ascending
   const distinctWidths = useMemo(() => {
     const widths = new Set<number>();
@@ -117,16 +120,105 @@ function SearchByUoMPanel({
     }
   }, [toggle, products, widthInches, lengthFeet, hasWidth, hasLength, hasSqft, totalSqft]);
 
+  // Generate stable bundle keys (same logic used for rendering)
+  const bundleKeys = useMemo(() => {
+    return rawBundles.map(
+      (bundle, idx) => bundle.items.map((i) => i.product.id).join('|') + '-' + idx,
+    );
+  }, [rawBundles]);
+
+  // Seed lifted prices for new bundles (target-margin price per each)
+  useEffect(() => {
+    setAllItemPrices((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (let idx = 0; idx < rawBundles.length; idx++) {
+        const bKey = bundleKeys[idx];
+        if (!next[bKey]) {
+          const prices: Record<string, string> = {};
+          for (const item of rawBundles[idx].items) {
+            const cost = item.product.properties.cost_per_each ?? 0;
+            const target = item.product.properties.margin_target / 100;
+            const raw = cost / (1 - target);
+            prices[item.product.id] = (Math.ceil(raw * 100) / 100).toFixed(2);
+          }
+          next[bKey] = prices;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [rawBundles, bundleKeys]);
+
+  // Determine if all bundles have all sell prices entered
+  const allSellPricesEntered = useMemo(() => {
+    if (rawBundles.length === 0) return false;
+    for (let idx = 0; idx < rawBundles.length; idx++) {
+      const bKey = bundleKeys[idx];
+      const prices = allItemPrices[bKey];
+      if (!prices) return false;
+      for (const item of rawBundles[idx].items) {
+        const priceStr = prices[item.product.id] ?? '';
+        const price = parseFloat(priceStr);
+        if (isNaN(price) || price <= 0) return false;
+      }
+    }
+    return true;
+  }, [rawBundles, bundleKeys, allItemPrices]);
+
+  // Compute customer sell price per sqft/linft for each bundle (when all prices entered)
+  const customerPricesPerBundle = useMemo(() => {
+    if (!allSellPricesEntered) return null;
+    const result: Array<{ customerPricePerSqft: number; customerPricePerLinft: number }> = [];
+    for (let idx = 0; idx < rawBundles.length; idx++) {
+      const bundle = rawBundles[idx];
+      const bKey = bundleKeys[idx];
+      const prices = allItemPrices[bKey];
+      let totalRevenue = 0;
+      for (const item of bundle.items) {
+        const price = parseFloat(prices[item.product.id] ?? '0');
+        totalRevenue += item.quantity * price;
+      }
+      result.push({
+        customerPricePerSqft: bundle.totalSqft === 0 ? 0 : totalRevenue / bundle.totalSqft,
+        customerPricePerLinft: bundle.totalLinft === 0 ? 0 : totalRevenue / bundle.totalLinft,
+      });
+    }
+    return result;
+  }, [allSellPricesEntered, rawBundles, bundleKeys, allItemPrices]);
+
   const sortedBundles: Bundle[] = useMemo(() => {
     if (rawBundles.length === 0) return rawBundles;
-    const copy = [...rawBundles];
-    if (sortKey === 'price-sqft') {
-      copy.sort((a, b) => a.pricePerSqft - b.pricePerSqft);
+
+    // Build index array to maintain association with customerPricesPerBundle
+    const indices = rawBundles.map((_, i) => i);
+
+    if (customerPricesPerBundle) {
+      // Sort by customer sell price
+      if (sortKey === 'price-sqft') {
+        indices.sort(
+          (a, b) =>
+            customerPricesPerBundle[a].customerPricePerSqft -
+            customerPricesPerBundle[b].customerPricePerSqft,
+        );
+      } else {
+        indices.sort(
+          (a, b) =>
+            customerPricesPerBundle[a].customerPricePerLinft -
+            customerPricesPerBundle[b].customerPricePerLinft,
+        );
+      }
     } else {
-      copy.sort((a, b) => a.pricePerLinft - b.pricePerLinft);
+      // Fallback: sort by cost-based price
+      if (sortKey === 'price-sqft') {
+        indices.sort((a, b) => rawBundles[a].pricePerSqft - rawBundles[b].pricePerSqft);
+      } else {
+        indices.sort((a, b) => rawBundles[a].pricePerLinft - rawBundles[b].pricePerLinft);
+      }
     }
-    return copy;
-  }, [rawBundles, sortKey]);
+
+    return indices.map((i) => rawBundles[i]);
+  }, [rawBundles, sortKey, customerPricesPerBundle]);
 
   const handleCreateOrders = async (
     items: Array<{
@@ -271,7 +363,11 @@ function SearchByUoMPanel({
       {/* Bundle list */}
       {sortedBundles.length > 0 && (
         <div className="space-y-3">
-          <BundleSortControls sortKey={sortKey} onSortChange={setSortKey} />
+          <BundleSortControls
+            sortKey={sortKey}
+            onSortChange={setSortKey}
+            usingSellPrice={allSellPricesEntered}
+          />
 
           {(() => {
             const showPills = sortedBundles.length >= 2;
@@ -281,8 +377,10 @@ function SearchByUoMPanel({
             const minOverage = showPills
               ? Math.min(...sortedBundles.map((b) => b.overage))
               : Infinity;
-            return sortedBundles.map((bundle, idx) => {
-              const bKey = bundle.items.map((i) => i.product.id).join('|') + '-' + idx;
+            return sortedBundles.map((bundle) => {
+              // Find the original index to get the correct bundleKey
+              const origIdx = rawBundles.indexOf(bundle);
+              const bKey = bundleKeys[origIdx];
               return (
                 <BundleCardBase
                   key={bKey}
@@ -294,6 +392,13 @@ function SearchByUoMPanel({
                   creating={creating}
                   isBestMargin={showPills && bundle.costTotal === minCostTotal}
                   isLeastWaste={showPills && bundle.overage === minOverage}
+                  itemPrices={allItemPrices[bKey]}
+                  onItemPriceChange={(productId, value) => {
+                    setAllItemPrices((prev) => ({
+                      ...prev,
+                      [bKey]: { ...prev[bKey], [productId]: value },
+                    }));
+                  }}
                 />
               );
             });

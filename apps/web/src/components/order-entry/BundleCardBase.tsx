@@ -34,6 +34,10 @@ export interface BundleCardBaseProps {
   isBestMargin?: boolean;
   /** Whether this bundle has the lowest overage among all shown bundles */
   isLeastWaste?: boolean;
+  /** Externally-managed item prices (lifted state). When provided, overrides internal state. */
+  itemPrices?: Record<string, string>;
+  /** Callback when an item price changes (required when itemPrices is provided). */
+  onItemPriceChange?: (productId: string, value: string) => void;
 }
 
 export function BundleCardBase({
@@ -45,11 +49,13 @@ export function BundleCardBase({
   creating = false,
   isBestMargin = false,
   isLeastWaste = false,
+  itemPrices: externalPrices,
+  onItemPriceChange,
 }: BundleCardBaseProps) {
   const { totalLinft, totalSqft, overage, items } = bundle;
 
-  // Per-item sell prices, keyed by product id
-  const [itemPrices, setItemPrices] = useState<Record<string, string>>(() => {
+  // Per-item sell prices, keyed by product id (internal state used when no external prices)
+  const [internalPrices, setInternalPrices] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const item of items) {
       const cost = item.product.properties.cost_per_each ?? 0;
@@ -60,11 +66,21 @@ export function BundleCardBase({
     return initial;
   });
 
+  // Use external prices when provided, otherwise use internal state
+  const itemPrices = externalPrices ?? internalPrices;
+
   const [showReview, setShowReview] = useState(false);
 
-  const handlePriceChange = useCallback((productId: string, value: string) => {
-    setItemPrices((prev) => ({ ...prev, [productId]: value }));
-  }, []);
+  const handlePriceChange = useCallback(
+    (productId: string, value: string) => {
+      if (onItemPriceChange) {
+        onItemPriceChange(productId, value);
+      } else {
+        setInternalPrices((prev) => ({ ...prev, [productId]: value }));
+      }
+    },
+    [onItemPriceChange],
+  );
 
   // Compute combined economics across all items
   const combinedEconomics = useMemo(() => {
