@@ -1,6 +1,25 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import type { Product, ProductProperties, Order, OrderProperties } from 'core';
 
+export interface InventoryEntry {
+  product_id: string;
+  product_sku: string;
+  product_name: string;
+  position: {
+    qty_on_hand: number;
+    committed_qty: number;
+    pending_qty: number;
+    net_available: number;
+    effective_available: number;
+    status: 'healthy' | 'warning' | 'critical';
+    reorder_point: number;
+    safety_stock: number;
+    reorder_qty: number;
+    lead_time_days: number;
+    days_of_stock: number | null;
+  };
+}
+
 type UserRole = 'sales_rep' | 'inventory_manager' | 'admin';
 
 interface UserSummary {
@@ -14,6 +33,7 @@ type FixtureState = {
   products?: Product[];
   orders?: Order[];
   users?: UserSummary[];
+  inventoryEntries?: InventoryEntry[];
   currentRole?: UserRole;
   [key: string]: unknown;
 };
@@ -324,6 +344,14 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
 
   // GET /api/inventory — list all products with stock positions
   if (url.pathname === '/api/inventory' && req.method === 'GET') {
+    // If explicit inventoryEntries provided, use them; otherwise compute from products
+    const explicitEntries = state.inventoryEntries as InventoryEntry[] | undefined;
+    if (explicitEntries) {
+      return new Response(JSON.stringify(explicitEntries), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const products = state.products ?? [];
     const entries = products.map((p) => ({
       product_id: p.id,
@@ -340,6 +368,57 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
       },
     }));
     return new Response(JSON.stringify(entries), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // GET /api/inventory/:productId/availability — simplified for sales_rep
+  const availabilityMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/availability$/);
+  if (availabilityMatch && req.method === 'GET') {
+    const productId = availabilityMatch[1];
+    const entries = (state.inventoryEntries as InventoryEntry[]) ?? [];
+    const entry = entries.find((e) => e.product_id === productId);
+    if (!entry) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const pos = entry.position;
+    const statusLabels: Record<string, string> = {
+      healthy: 'In Stock',
+      warning: 'Low Stock',
+      critical: 'Out of Stock',
+    };
+    return new Response(
+      JSON.stringify({
+        product_id: productId,
+        effective_available: pos.effective_available,
+        status: pos.status,
+        status_label: statusLabels[pos.status] ?? pos.status,
+        can_order: pos.status !== 'critical',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+
+  // GET /api/inventory/:productId — full stock position for inventory_manager
+  const stockPositionMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)$/);
+  if (stockPositionMatch && req.method === 'GET') {
+    const productId = stockPositionMatch[1];
+    const entries = (state.inventoryEntries as InventoryEntry[]) ?? [];
+    const entry = entries.find((e) => e.product_id === productId);
+    if (!entry) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify(entry.position), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
