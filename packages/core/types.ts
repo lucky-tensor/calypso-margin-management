@@ -45,6 +45,12 @@ export interface ProductProperties {
   primary_cost_basis: CostBasis;
   margin_target: number;
   margin_floor: number;
+  qty_on_hand_eaches: number;
+  safety_stock_eaches: number;
+  reorder_point_eaches: number;
+  reorder_qty_eaches: number | null;
+  lead_time_days: number | null;
+  pending_order_weight: number;
 }
 
 export interface OrderProperties {

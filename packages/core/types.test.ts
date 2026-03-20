@@ -53,8 +53,25 @@ describe('domain types', () => {
       primary_cost_basis: 'each',
       margin_target: 25,
       margin_floor: 15,
+      qty_on_hand_eaches: 0,
+      safety_stock_eaches: 0,
+      reorder_point_eaches: 0,
+      reorder_qty_eaches: null,
+      lead_time_days: null,
+      pending_order_weight: 0.70,
     };
     expectTypeOf(product).toMatchTypeOf<ProductProperties>();
+  });
+
+  it('ProductProperties includes inventory fields with correct types', () => {
+    expectTypeOf<ProductProperties>().toHaveProperty('qty_on_hand_eaches');
+    expectTypeOf<ProductProperties>().toHaveProperty('safety_stock_eaches');
+    expectTypeOf<ProductProperties>().toHaveProperty('reorder_point_eaches');
+    expectTypeOf<ProductProperties>().toHaveProperty('reorder_qty_eaches');
+    expectTypeOf<ProductProperties>().toHaveProperty('lead_time_days');
+    expectTypeOf<ProductProperties>().toHaveProperty('pending_order_weight');
+    expectTypeOf<ProductProperties['reorder_qty_eaches']>().toMatchTypeOf<number | null>();
+    expectTypeOf<ProductProperties['lead_time_days']>().toMatchTypeOf<number | null>();
   });
 
   it('OrderProperties has all required fields including audit and snapshot', () => {
