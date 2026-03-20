@@ -11,6 +11,7 @@ const SERVER_ENTRY = 'apps/server/src/index.ts';
 
 let pg: PgContainer;
 let server: Subprocess;
+/** inventory_manager cookie — needed for product write operations (POST, PATCH) */
 let authCookie = '';
 let userId = '';
 let inventoryManagerCookie = '';
@@ -79,7 +80,7 @@ afterAll(async () => {
 async function createTestProduct() {
   const res = await fetch(`${BASE}/api/products`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    headers: { 'Content-Type': 'application/json', Cookie: inventoryManagerCookie },
     body: JSON.stringify({
       name: '4x4 Welded Wire Mesh 10ga',
       sku: 'WM-4x4-10GA',
