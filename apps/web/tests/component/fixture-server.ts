@@ -29,11 +29,24 @@ interface UserSummary {
   display_name: string;
 }
 
+type InventoryTxnRecord = {
+  id: string;
+  created_at: string;
+  product_id: string;
+  product_sku: string;
+  txn_type: string;
+  qty_eaches: number;
+  reference: string;
+  balance_after: number;
+  created_by: string;
+};
+
 type FixtureState = {
   products?: Product[];
   orders?: Order[];
   users?: UserSummary[];
   inventoryEntries?: InventoryEntry[];
+  inventoryTransactions?: Record<string, InventoryTxnRecord[]>;
   currentRole?: UserRole;
   [key: string]: unknown;
 };
@@ -364,9 +377,8 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     });
   }
 
-  // GET /api/inventory — list all products with stock positions
+  // GET /api/inventory — all products stock positions
   if (url.pathname === '/api/inventory' && req.method === 'GET') {
-    // If explicit inventoryEntries provided, use them; otherwise compute from products
     const explicitEntries = state.inventoryEntries as InventoryEntry[] | undefined;
     if (explicitEntries) {
       return new Response(JSON.stringify(explicitEntries), {
@@ -395,7 +407,19 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     });
   }
 
-  // GET /api/inventory/:productId/availability — simplified for sales_rep
+  // GET /api/inventory/:productId/transactions
+  const txnMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/transactions$/);
+  if (txnMatch && req.method === 'GET') {
+    const productId = txnMatch[1];
+    const allTxns = (state.inventoryTransactions as Record<string, InventoryTxnRecord[]>) ?? {};
+    const transactions = allTxns[productId] ?? [];
+    return new Response(JSON.stringify({ transactions }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // GET /api/inventory/:productId/availability
   const availabilityMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/availability$/);
   if (availabilityMatch && req.method === 'GET') {
     const productId = availabilityMatch[1];
@@ -428,7 +452,7 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     );
   }
 
-  // GET /api/inventory/:productId — full stock position for inventory_manager
+  // GET /api/inventory/:productId — full stock position
   const stockPositionMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)$/);
   if (stockPositionMatch && req.method === 'GET') {
     const productId = stockPositionMatch[1];
