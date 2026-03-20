@@ -11,7 +11,8 @@ type ViewId = 'order-entry' | 'products' | 'inventory' | 'history';
 
 interface NavItem {
   id: ViewId;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: React.ComponentType<any>;
   label: string;
   roles?: Role[];
 }
