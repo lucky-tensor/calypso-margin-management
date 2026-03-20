@@ -4,6 +4,7 @@ import type { Product, ProductProperties, Order, OrderProperties } from 'core';
 type FixtureState = {
   products?: Product[];
   orders?: Order[];
+  currentRole?: 'sales_rep' | 'inventory_manager' | 'admin';
   [key: string]: unknown;
 };
 type FixtureStore = Record<string, FixtureState>;
@@ -41,7 +42,9 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
   // Auth stub - always authenticated
   if (url.pathname === '/api/auth/me') {
     const role =
-      (url.searchParams.get('role') as 'sales_rep' | 'inventory_manager' | 'admin') ?? 'sales_rep';
+      (state.currentRole as 'sales_rep' | 'inventory_manager' | 'admin') ??
+      (url.searchParams.get('role') as 'sales_rep' | 'inventory_manager' | 'admin') ??
+      'sales_rep';
     return new Response(
       JSON.stringify({
         user: { id: 'test-user', username: 'test', role, display_name: 'Test User' },
