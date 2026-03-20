@@ -118,6 +118,24 @@ export async function handleFixtureRequest(req: Request, statePath: string): Pro
     });
   }
 
+  // GET /api/products/:id
+  const getProductMatch = url.pathname.match(/^\/api\/products\/([^/]+)$/);
+  if (getProductMatch && req.method === 'GET') {
+    const productId = getProductMatch[1];
+    const products = state.products ?? [];
+    const product = products.find((p) => p.id === productId);
+    if (!product) {
+      return new Response(JSON.stringify({ error: 'Product not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify(product), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // PATCH /api/products/:id
   const patchMatch = url.pathname.match(/^\/api\/products\/([^/]+)$/);
   if (patchMatch && req.method === 'PATCH') {
