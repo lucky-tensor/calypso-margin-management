@@ -234,10 +234,10 @@ test('POST /api/orders sets created_by from authenticated user', async () => {
 });
 
 test('POST /api/orders snapshots margin_target and margin_floor from product', async () => {
-  // Create a product with custom margin thresholds
+  // Create a product with custom margin thresholds — requires inventory_manager
   const productRes = await fetch(`${BASE}/api/products`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: authCookie },
+    headers: { 'Content-Type': 'application/json', Cookie: inventoryManagerCookie },
     body: JSON.stringify({
       name: 'Custom Margin Product',
       sku: 'CMP-001',
