@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
+export type Role = 'sales_rep' | 'inventory_manager' | 'admin';
+
 export interface User {
   id: string;
   username: string;
+  role: Role;
+  display_name: string;
 }
 
 interface AuthContextType {
