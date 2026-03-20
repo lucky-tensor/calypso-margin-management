@@ -1,5 +1,7 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type {
+  Role,
+  UserProperties,
   UnitOfMeasure,
   CostBasis,
   OrderStatus,
@@ -10,6 +12,29 @@ import type {
   Product,
   Order,
 } from './types';
+
+describe('Role type', () => {
+  it('Role accepts valid values', () => {
+    const a: Role = 'sales_rep';
+    const b: Role = 'inventory_manager';
+    const c: Role = 'admin';
+    expectTypeOf(a).toMatchTypeOf<Role>();
+    expectTypeOf(b).toMatchTypeOf<Role>();
+    expectTypeOf(c).toMatchTypeOf<Role>();
+  });
+
+  it('UserProperties includes role and display_name', () => {
+    const user: UserProperties = {
+      username: 'jsmith',
+      password_hash: 'hash',
+      role: 'sales_rep',
+      display_name: 'John Smith',
+    };
+    expectTypeOf(user).toMatchTypeOf<UserProperties>();
+    expectTypeOf(user.role).toMatchTypeOf<Role>();
+    expectTypeOf(user.display_name).toMatchTypeOf<string>();
+  });
+});
 
 describe('domain types', () => {
   it('UnitOfMeasure covers the three units', () => {
