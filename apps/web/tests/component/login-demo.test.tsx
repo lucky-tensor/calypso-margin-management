@@ -24,10 +24,11 @@ describe('Login demo buttons', () => {
     );
 
     await expect.element(screen.getByText('Demo accounts')).toBeVisible();
-    await expect.element(screen.getByText('Sales Rep')).toBeVisible();
-    await expect.element(screen.getByText('Order Clerk')).toBeVisible();
-    await expect.element(screen.getByText('Inv Manager')).toBeVisible();
-    await expect.element(screen.getByText('Admin')).toBeVisible();
+    // Use role=button to be specific about the demo account buttons
+    await expect.element(screen.getByRole('button', { name: /Sales Rep/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Order Clerk/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Inv Manager/i })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: /Admin/i })).toBeVisible();
   });
 
   test('clicking Sales Rep button triggers login with sales_rep credentials', async () => {
@@ -164,8 +165,10 @@ describe('Login demo buttons', () => {
       </AuthProvider>,
     );
 
-    await expect.element(screen.getByText('Admin')).toBeVisible();
-    await screen.getByText('Admin').click();
+    // Use role=button to avoid strict mode violation (label "Admin" and role badge "admin" both match getByText)
+    const adminButton = screen.getByRole('button', { name: /Admin/i });
+    await expect.element(adminButton).toBeVisible();
+    await adminButton.click();
 
     const loginCall = mockFetch.mock.calls.find(
       (call: unknown[]) =>
