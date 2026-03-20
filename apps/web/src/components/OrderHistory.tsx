@@ -285,7 +285,7 @@ export const OrderHistory: React.FC = () => {
                 <th className="text-right px-4 py-3 font-medium text-zinc-600">Cost</th>
                 <th className="text-right px-4 py-3 font-medium text-zinc-600">Margin %</th>
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Updated by</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Action by</th>
                 <th className="text-right px-4 py-3 font-medium text-zinc-600">
                   Stock at Creation
                 </th>
