@@ -1,5 +1,5 @@
 import { sql } from 'db';
-import type { ProductProperties, InventoryTxnProperties } from 'core';
+import type { ProductProperties, InventoryTxnProperties, InventoryTxnType } from 'core';
 import { computeStockPosition } from 'core';
 import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
@@ -9,10 +9,170 @@ const STATUS_LABELS: Record<string, string> = {
   critical: 'Out of Stock',
 };
 
+const MANUAL_TXN_TYPES: InventoryTxnType[] = ['receipt', 'adjustment', 'return'];
+
 export async function handleInventoryRequest(req: Request, url: URL): Promise<Response | null> {
   const corsHeaders = getCorsHeaders(req);
 
   if (!url.pathname.startsWith('/api/inventory')) return null;
+
+  // POST /api/inventory/:productId/adjust
+  const adjustMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/adjust$/);
+  if (req.method === 'POST' && adjustMatch) {
+    const productId = adjustMatch[1];
+
+    // Check role: inventory_manager or admin only
+    const guard = requireRole('inventory_manager', 'admin');
+    const guardResponse = await guard(req);
+    if (guardResponse) return guardResponse;
+
+    try {
+      const body = await req.json();
+      const { txn_type, qty_eaches, reference } = body;
+
+      // Validate txn_type
+      if (!txn_type || !MANUAL_TXN_TYPES.includes(txn_type as InventoryTxnType)) {
+        return new Response(
+          JSON.stringify({
+            error: `txn_type must be one of: ${MANUAL_TXN_TYPES.join(', ')}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      // Validate qty_eaches
+      if (qty_eaches === undefined || qty_eaches === null || typeof qty_eaches !== 'number') {
+        return new Response(
+          JSON.stringify({ error: 'qty_eaches is required and must be a number' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      // Validate reference
+      if (!reference || typeof reference !== 'string') {
+        return new Response(JSON.stringify({ error: 'reference is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Fetch the product
+      const productRows = await sql<
+        { id: string; properties: ProductProperties; created_at: string }[]
+      >`
+        SELECT id, properties, created_at
+        FROM entities
+        WHERE id = ${productId} AND type = 'product'
+      `;
+
+      if (productRows.length === 0) {
+        return new Response(JSON.stringify({ error: 'Product not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const product = productRows[0];
+      const currentQty = product.properties.qty_on_hand_eaches ?? 0;
+      const balanceAfter = currentQty + qty_eaches;
+
+      // Reject if balance would go below 0
+      if (balanceAfter < 0) {
+        return new Response(
+          JSON.stringify({
+            error: `Adjustment would result in negative stock. Current: ${currentQty}, Adjustment: ${qty_eaches}, Result: ${balanceAfter}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      // Get authenticated user for created_by (guaranteed non-null since requireRole passed)
+      const user = await getAuthenticatedUser(req);
+
+      const txnId = crypto.randomUUID();
+      const txnProperties: InventoryTxnProperties = {
+        product_id: productId,
+        product_sku: product.properties.sku,
+        txn_type: txn_type as InventoryTxnType,
+        qty_eaches,
+        reference,
+        balance_after: balanceAfter,
+        created_by: user!.id,
+      };
+
+      // Insert inventory_txn entity
+      const txnRows = await sql<
+        { id: string; properties: InventoryTxnProperties; created_at: string }[]
+      >`
+        INSERT INTO entities (id, type, properties, tenant_id)
+        VALUES (${txnId}, 'inventory_txn', ${sql.json(JSON.parse(JSON.stringify(txnProperties)))}, null)
+        RETURNING id, properties, created_at
+      `;
+
+      // Update product qty_on_hand_eaches
+      const updatedProps: ProductProperties = {
+        ...product.properties,
+        qty_on_hand_eaches: balanceAfter,
+      };
+
+      await sql`
+        UPDATE entities
+        SET properties = ${sql.json(JSON.parse(JSON.stringify(updatedProps)))},
+            updated_at = CURRENT_TIMESTAMP,
+            version = version + 1
+        WHERE id = ${productId} AND type = 'product'
+      `;
+
+      // Fetch updated product
+      const updatedProductRows = await sql<
+        { id: string; properties: ProductProperties; created_at: string }[]
+      >`
+        SELECT id, properties, created_at
+        FROM entities
+        WHERE id = ${productId} AND type = 'product'
+      `;
+
+      const txn = txnRows[0];
+      return new Response(
+        JSON.stringify({
+          transaction: {
+            id: txn.id,
+            created_at: txn.created_at,
+            properties: txn.properties,
+          },
+          stock_position: {
+            product_id: productId,
+            qty_on_hand_eaches: balanceAfter,
+            previous_qty: currentQty,
+          },
+          product: {
+            id: updatedProductRows[0].id,
+            created_at: updatedProductRows[0].created_at,
+            properties: updatedProductRows[0].properties,
+          },
+        }),
+        {
+          status: 201,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    } catch (err) {
+      console.error('POST /api/inventory/:productId/adjust ERROR:', err);
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   // GET /api/inventory/:productId — full stock position (requires inventory_manager or admin)
   const productIdMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)$/);
@@ -24,7 +184,6 @@ export async function handleInventoryRequest(req: Request, url: URL): Promise<Re
     if (roleError) return roleError;
 
     try {
-      // Fetch the product
       const productRows = await sql<
         { id: string; properties: ProductProperties; created_at: string }[]
       >`
