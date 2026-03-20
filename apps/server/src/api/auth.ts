@@ -1,4 +1,5 @@
 import { sql } from 'db';
+import type { Role } from 'core';
 import { signJwt, verifyJwt } from '../auth/jwt';
 
 // Helper to parse cookies from headers
@@ -15,23 +16,6 @@ export function parseCookies(cookieHeader: string | null): Record<string, string
   return cookies;
 }
 
-// Helper to verify auth from a Request object
-export async function getAuthenticatedUser(
-  req: Request,
-): Promise<{ id: string; username: string } | null> {
-  const cookies = parseCookies(req.headers.get('Cookie'));
-  const token = cookies['meshmargin_auth'];
-
-  if (!token) return null;
-
-  try {
-    const payload = await verifyJwt<{ id: string; username: string }>(token);
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
 // Helper to get CORS headers dynamically
 export function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') || 'http://localhost:5174';
@@ -39,6 +23,60 @@ export function getCorsHeaders(req: Request): Record<string, string> {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
+// Helper to verify auth from a Request object
+export async function getAuthenticatedUser(
+  req: Request,
+): Promise<{ id: string; username: string; role: Role } | null> {
+  const cookies = parseCookies(req.headers.get('Cookie'));
+  const token = cookies['meshmargin_auth'];
+
+  if (!token) return null;
+
+  try {
+    const payload = await verifyJwt<{ id: string; username: string; role: Role }>(token);
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns a middleware function that checks if the authenticated user has one
+ * of the allowed roles. Returns a 403 Forbidden response if the user's role is
+ * not in the allowed list, or 401 if unauthenticated.
+ */
+export function requireRole(...allowed: Role[]): (req: Request) => Promise<Response | null> {
+  return async (req: Request): Promise<Response | null> => {
+    const corsHeaders = getCorsHeaders(req);
+    const user = await getAuthenticatedUser(req);
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!allowed.includes(user.role)) {
+      const required_role = allowed[0];
+      return new Response(
+        JSON.stringify({
+          error: 'Forbidden',
+          message: `This action requires the ${required_role} role.`,
+          required_role,
+          current_role: user.role,
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    return null;
   };
 }
 
@@ -76,20 +114,22 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
 
       const id = crypto.randomUUID();
       const hash = await Bun.password.hash(password);
+      const role: Role = 'sales_rep';
 
       const properties = {
         username,
         password_hash: hash,
+        role,
       };
 
       await sql`
-                INSERT INTO entities (id, type, properties, tenant_id) 
+                INSERT INTO entities (id, type, properties, tenant_id)
                 VALUES (${id}, 'user', ${sql.json(properties)}, null)
             `;
 
-      const token = await signJwt({ id, username });
+      const token = await signJwt({ id, username, role });
 
-      return new Response(JSON.stringify({ user: { id, username } }), {
+      return new Response(JSON.stringify({ user: { id, username, role } }), {
         status: 201,
         headers: {
           ...corsHeaders,
@@ -113,8 +153,8 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
 
       // Retrieve User Entity
       const users = await sql`
-                SELECT id, properties->>'username' as username, properties->>'password_hash' as password_hash 
-                FROM entities 
+                SELECT id, properties->>'username' as username, properties->>'password_hash' as password_hash, properties->>'role' as role
+                FROM entities
                 WHERE type = 'user' AND properties->>'username' = ${username}
             `;
 
@@ -135,16 +175,20 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
         });
       }
 
-      const token = await signJwt({ id: user.id, username: user.username });
+      const role: Role = (user.role as Role) ?? 'sales_rep';
+      const token = await signJwt({ id: user.id, username: user.username, role });
 
-      return new Response(JSON.stringify({ user: { id: user.id, username: user.username } }), {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'Set-Cookie': `meshmargin_auth=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+      return new Response(
+        JSON.stringify({ user: { id: user.id, username: user.username, role } }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Set-Cookie': `meshmargin_auth=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+          },
         },
-      });
+      );
     } catch (err) {
       console.error('LOGIN ERROR:', err);
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
