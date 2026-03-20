@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Order, OrderStatus } from 'core';
+import { RoleGate } from './RoleGate';
 
 const UOM_LABELS: Record<string, string> = {
   each: 'Each',
@@ -68,19 +69,21 @@ const STATUS_FILTER_TABS: { value: OrderStatus | 'all'; label: string }[] = [
   { value: 'draft', label: 'Draft' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'shipped', label: 'Shipped' },
 ];
 
 interface ConfirmDialogProps {
   message: string;
-  actionType: 'confirm' | 'cancel';
+  actionType: 'confirm' | 'cancel' | 'ship';
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 function ConfirmDialog({ message, actionType, onConfirm, onCancel }: ConfirmDialogProps) {
-  const actionLabel = actionType === 'confirm' ? 'Confirm' : 'Cancel order';
+  const actionLabel =
+    actionType === 'confirm' ? 'Confirm' : actionType === 'ship' ? 'Mark Shipped' : 'Cancel order';
   const actionClass =
-    actionType === 'confirm'
+    actionType === 'confirm' || actionType === 'ship'
       ? 'bg-zinc-800 hover:bg-zinc-900 text-white'
       : 'bg-red-600 hover:bg-red-700 text-white';
 
@@ -116,7 +119,7 @@ export const OrderHistory: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{
     orderId: string;
-    action: 'confirm' | 'cancel';
+    action: 'confirm' | 'cancel' | 'ship';
   } | null>(null);
 
   const fetchOrders = useCallback(async () => {
@@ -143,7 +146,10 @@ export const OrderHistory: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleStatusChange = async (orderId: string, newStatus: 'confirmed' | 'cancelled') => {
+  const handleStatusChange = async (
+    orderId: string,
+    newStatus: 'confirmed' | 'cancelled' | 'shipped',
+  ) => {
     setActionError(null);
     try {
       const res = await fetch(`/api/orders/${orderId}`, {
@@ -172,14 +178,20 @@ export const OrderHistory: React.FC = () => {
     setPendingAction({ orderId, action: 'cancel' });
   };
 
+  const handleShipClick = (orderId: string) => {
+    setPendingAction({ orderId, action: 'ship' });
+  };
+
   const handleDialogConfirm = async () => {
     if (!pendingAction) return;
     const { orderId, action } = pendingAction;
     setPendingAction(null);
     if (action === 'confirm') {
       await handleStatusChange(orderId, 'confirmed');
-    } else {
+    } else if (action === 'cancel') {
       await handleStatusChange(orderId, 'cancelled');
+    } else {
+      await handleStatusChange(orderId, 'shipped');
     }
   };
 
@@ -190,7 +202,9 @@ export const OrderHistory: React.FC = () => {
   const dialogMessage =
     pendingAction?.action === 'confirm'
       ? 'Confirm this order?'
-      : 'Cancel this order? This action cannot be undone.';
+      : pendingAction?.action === 'ship'
+        ? 'Mark this order as shipped? This will decrement stock.'
+        : 'Cancel this order? This action cannot be undone.';
 
   return (
     <div>
@@ -271,7 +285,10 @@ export const OrderHistory: React.FC = () => {
                 <th className="text-right px-4 py-3 font-medium text-zinc-600">Cost</th>
                 <th className="text-right px-4 py-3 font-medium text-zinc-600">Margin %</th>
                 <th className="text-left px-4 py-3 font-medium text-zinc-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-600">Conf./Canc. by</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-600">Action by</th>
+                <th className="text-right px-4 py-3 font-medium text-zinc-600">
+                  Stock at Creation
+                </th>
                 <th className="text-center px-4 py-3 font-medium text-zinc-600">Actions</th>
               </tr>
             </thead>
@@ -294,6 +311,8 @@ export const OrderHistory: React.FC = () => {
                   auditInfo = `${p.confirmed_by}${p.confirmed_at ? ' at ' + formatDateTime(p.confirmed_at) : ''}`;
                 } else if (p.status === 'cancelled' && p.cancelled_by) {
                   auditInfo = `${p.cancelled_by}${p.cancelled_at ? ' at ' + formatDateTime(p.cancelled_at) : ''}`;
+                } else if (p.status === 'shipped' && p.shipped_by) {
+                  auditInfo = `${p.shipped_by}${p.shipped_at ? ' at ' + formatDateTime(p.shipped_at) : ''}`;
                 }
 
                 return (
@@ -328,7 +347,9 @@ export const OrderHistory: React.FC = () => {
                             ? 'bg-emerald-100 text-emerald-800'
                             : p.status === 'cancelled'
                               ? 'bg-zinc-100 text-zinc-600'
-                              : 'bg-amber-100 text-amber-800'
+                              : p.status === 'shipped'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-amber-100 text-amber-800'
                         }`}
                       >
                         {STATUS_LABELS[p.status]}
@@ -336,6 +357,11 @@ export const OrderHistory: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-xs text-zinc-500 max-w-[140px] truncate">
                       {auditInfo ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs text-zinc-500">
+                      {p.stock_position_at_creation != null
+                        ? `${p.stock_position_at_creation.net_available} ea`
+                        : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -347,6 +373,16 @@ export const OrderHistory: React.FC = () => {
                             Confirm
                           </button>
                         )}
+                        {p.status === 'confirmed' && (
+                          <RoleGate role="inventory_manager">
+                            <button
+                              onClick={() => handleShipClick(order.id)}
+                              className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                            >
+                              Mark Shipped
+                            </button>
+                          </RoleGate>
+                        )}
                         {(p.status === 'draft' || p.status === 'confirmed') && (
                           <button
                             onClick={() => handleCancelClick(order.id)}
@@ -355,7 +391,7 @@ export const OrderHistory: React.FC = () => {
                             Cancel
                           </button>
                         )}
-                        {p.status === 'cancelled' && (
+                        {(p.status === 'cancelled' || p.status === 'shipped') && (
                           <span className="text-xs text-zinc-400">—</span>
                         )}
                       </div>
