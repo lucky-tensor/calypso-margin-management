@@ -3,7 +3,6 @@ import { render } from 'vitest-browser-react';
 import { commands, page } from '@vitest/browser/context';
 import React from 'react';
 import { OrderHistory } from '../../src/components/OrderHistory';
-import { AuthProvider } from '../../src/context/AuthContext';
 import type { Order } from 'core';
 
 const fixtureDraftOrder: Order = {
@@ -119,11 +118,7 @@ describe('OrderHistory', () => {
   test('shows empty state when no orders exist', async () => {
     await commands.setFixtureState({ state: { orders: [] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('No orders found.')).toBeVisible();
   });
@@ -131,11 +126,7 @@ describe('OrderHistory', () => {
   test('renders order table with correct columns', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Order History')).toBeVisible();
     await expect.element(screen.getByText('Date')).toBeVisible();
@@ -152,11 +143,7 @@ describe('OrderHistory', () => {
   test('displays order data in table rows', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect.element(screen.getByText('4x4 Welded Wire Mesh')).toBeVisible();
@@ -167,11 +154,7 @@ describe('OrderHistory', () => {
     // fixtureDraftOrder has 28.89% margin, target 25% => healthy/green
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     // Wait for table to appear
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
@@ -187,11 +170,7 @@ describe('OrderHistory', () => {
     // fixtureCancelledOrder has 20% margin, target 25%, floor 15% => warning/amber
     await commands.setFixtureState({ state: { orders: [fixtureCancelledOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Gamma Corp')).toBeVisible();
 
@@ -205,11 +184,7 @@ describe('OrderHistory', () => {
     // fixtureConfirmedOrder has 10% margin, target 25%, floor 15% => critical/red
     await commands.setFixtureState({ state: { orders: [fixtureConfirmedOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
 
@@ -224,11 +199,7 @@ describe('OrderHistory', () => {
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder, fixtureCancelledOrder] },
     });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     // All orders visible initially
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
@@ -249,11 +220,7 @@ describe('OrderHistory', () => {
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder, fixtureCancelledOrder] },
     });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
 
@@ -269,11 +236,7 @@ describe('OrderHistory', () => {
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder] },
     });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
@@ -287,11 +250,7 @@ describe('OrderHistory', () => {
   test('draft order has Confirm and Cancel buttons', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await expect
@@ -303,11 +262,7 @@ describe('OrderHistory', () => {
   test('confirmed order has only Cancel button', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureConfirmedOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Beta Supplies')).toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
@@ -319,11 +274,7 @@ describe('OrderHistory', () => {
   test('cancelled order has no action buttons', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureCancelledOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Gamma Corp')).toBeVisible();
     await expect
@@ -337,11 +288,7 @@ describe('OrderHistory', () => {
   test('Confirm button shows confirmation dialog', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -355,11 +302,7 @@ describe('OrderHistory', () => {
   test('Cancel button shows confirmation dialog', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -370,11 +313,7 @@ describe('OrderHistory', () => {
   test('confirming an order updates the row status', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await screen.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -391,11 +330,7 @@ describe('OrderHistory', () => {
   test('cancelling an order updates the row status', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureDraftOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
     await screen.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -411,11 +346,7 @@ describe('OrderHistory', () => {
   test('confirmed order shows audit info', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureConfirmedOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     // Audit info shows "admin at ..."
     await expect.element(screen.getByText(/admin/)).toBeVisible();
@@ -424,11 +355,7 @@ describe('OrderHistory', () => {
   test('cancelled order shows audit info', async () => {
     await commands.setFixtureState({ state: { orders: [fixtureCancelledOrder] } });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     await expect.element(screen.getByText(/manager/)).toBeVisible();
   });
@@ -438,11 +365,7 @@ describe('OrderHistory', () => {
       state: { orders: [fixtureDraftOrder, fixtureConfirmedOrder] },
     });
 
-    const screen = render(
-      <AuthProvider>
-        <OrderHistory />
-      </AuthProvider>,
-    );
+    const screen = render(<OrderHistory />);
 
     // Select only draft
     await expect.element(screen.getByText('Acme Fencing Co')).toBeVisible();
