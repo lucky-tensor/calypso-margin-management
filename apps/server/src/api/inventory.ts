@@ -1,5 +1,10 @@
 import { sql } from 'db';
-import type { ProductProperties, InventoryTxnProperties, InventoryTxnType } from 'core';
+import type {
+  ProductProperties,
+  InventoryTxnProperties,
+  InventoryTxnType,
+  StockPosition,
+} from 'core';
 import { computeStockPosition } from 'core';
 import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
@@ -11,10 +16,122 @@ const STATUS_LABELS: Record<string, string> = {
 
 const MANUAL_TXN_TYPES: InventoryTxnType[] = ['receipt', 'adjustment', 'return'];
 
+export interface InventoryEntry {
+  product_id: string;
+  product_sku: string;
+  product_name: string;
+  position: StockPosition;
+}
+
 export async function handleInventoryRequest(req: Request, url: URL): Promise<Response | null> {
   const corsHeaders = getCorsHeaders(req);
 
   if (!url.pathname.startsWith('/api/inventory')) return null;
+
+  // GET /api/inventory — stock positions for all products (requires inventory_manager or admin)
+  if (req.method === 'GET' && url.pathname === '/api/inventory') {
+    // Role check: requires inventory_manager or admin
+    const roleCheck = await requireRole('inventory_manager', 'admin')(req);
+    if (roleCheck) return roleCheck;
+
+    try {
+      // Fetch all products in a single query
+      const productRows = await sql<
+        { id: string; properties: ProductProperties; created_at: string }[]
+      >`
+        SELECT id, properties, created_at
+        FROM entities
+        WHERE type = 'product'
+        ORDER BY created_at ASC
+      `;
+
+      if (productRows.length === 0) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Collect product IDs for order aggregate query
+      const productIds = productRows.map(
+        (r: { id: string; properties: ProductProperties; created_at: string }) => r.id,
+      );
+
+      // Fetch order aggregates in a single batched query
+      // Sum qty_eaches grouped by product_id and status
+      // Only consider non-cancelled, non-shipped orders
+      const orderAggRows = await sql<
+        { product_id: string; status: string; total_qty_eaches: number }[]
+      >`
+        SELECT
+          properties->>'product_id' AS product_id,
+          properties->>'status' AS status,
+          COALESCE(SUM((properties->>'qty_eaches')::numeric), 0)::int AS total_qty_eaches
+        FROM entities
+        WHERE type = 'order'
+          AND properties->>'product_id' = ANY(${productIds})
+          AND properties->>'status' NOT IN ('cancelled', 'shipped')
+        GROUP BY properties->>'product_id', properties->>'status'
+      `;
+
+      // Build aggregate maps: product_id -> { confirmed: number, draft: number }
+      const confirmedMap = new Map<string, number>();
+      const draftMap = new Map<string, number>();
+
+      for (const row of orderAggRows) {
+        if (row.status === 'confirmed') {
+          confirmedMap.set(
+            row.product_id,
+            (confirmedMap.get(row.product_id) ?? 0) + Number(row.total_qty_eaches),
+          );
+        } else if (row.status === 'draft') {
+          draftMap.set(
+            row.product_id,
+            (draftMap.get(row.product_id) ?? 0) + Number(row.total_qty_eaches),
+          );
+        }
+      }
+
+      // Compute stock position for each product in a single pass
+      const result: InventoryEntry[] = productRows.map(
+        (row: { id: string; properties: ProductProperties; created_at: string }) => {
+          const props = row.properties;
+          const confirmedQty = confirmedMap.get(row.id) ?? 0;
+          const draftQty = draftMap.get(row.id) ?? 0;
+
+          const inventoryInput = {
+            qty_on_hand: props.qty_on_hand_eaches ?? 0,
+            reorder_point: props.reorder_point_eaches ?? 0,
+            safety_stock: props.safety_stock_eaches ?? 0,
+            reorder_qty: props.reorder_qty_eaches ?? 0,
+            lead_time_days: props.lead_time_days ?? 0,
+            pending_order_weight: props.pending_order_weight ?? 0.7,
+            avg_daily_usage: 0,
+          };
+
+          const position = computeStockPosition(inventoryInput, confirmedQty, draftQty);
+
+          return {
+            product_id: row.id,
+            product_sku: props.sku,
+            product_name: props.name,
+            position,
+          };
+        },
+      );
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (err) {
+      console.error('GET /api/inventory ERROR:', err);
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   // POST /api/inventory/:productId/adjust
   const adjustMatch = url.pathname.match(/^\/api\/inventory\/([^/]+)\/adjust$/);
