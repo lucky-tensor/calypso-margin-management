@@ -19,9 +19,13 @@ export interface Relation {
   created_at: string;
 }
 
+export type Role = 'sales_rep' | 'inventory_manager' | 'admin';
+
 export interface UserProperties {
   username: string;
   password_hash: string;
+  role: Role;
+  display_name: string;
 }
 
 // --- Domain types ---
