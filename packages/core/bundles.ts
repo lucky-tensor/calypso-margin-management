@@ -250,7 +250,23 @@ function findBundles(
     if (!anyImprovement) break;
   }
 
-  return Array.from(bundles.values())
+  // Strip zero-quantity items from each bundle, then re-deduplicate by the
+  // resulting effective product set. A 2-product bundle where one product has
+  // qty=0 is equivalent to a single-product bundle and must not appear as a
+  // separate entry.
+  const effectiveBundles = new Map<string, Bundle>();
+  for (const bundle of bundles.values()) {
+    const nonZeroItems = bundle.items.filter((item) => item.quantity > 0);
+    if (nonZeroItems.length === 0) continue;
+    const effectiveBundle = { ...bundle, items: nonZeroItems };
+    const key = productSetKey(nonZeroItems.map((i) => i.product));
+    const existing = effectiveBundles.get(key);
+    if (!existing || isBetter(effectiveBundle, existing)) {
+      effectiveBundles.set(key, effectiveBundle);
+    }
+  }
+
+  return Array.from(effectiveBundles.values())
     .sort((a, b) => a.overage - b.overage || a.costTotal - b.costTotal)
     .slice(0, maxBundles);
 }
