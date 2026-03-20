@@ -305,6 +305,10 @@ async function createScenario1Product() {
       primary_cost_basis: 'each',
       margin_target: 25,
       margin_floor: 15,
+      qty_on_hand_eaches: 1000,
+      safety_stock_eaches: 10,
+      reorder_point_eaches: 50,
+      pending_order_weight: 1.0,
     }),
   });
   expect(res.status).toBe(201);
@@ -426,6 +430,10 @@ test('POST /api/orders snapshots margin_target and margin_floor from product', a
       primary_cost_basis: 'each',
       margin_target: 30,
       margin_floor: 20,
+      qty_on_hand_eaches: 1000,
+      safety_stock_eaches: 10,
+      reorder_point_eaches: 50,
+      pending_order_weight: 1.0,
     }),
   });
   expect(productRes.status).toBe(201);

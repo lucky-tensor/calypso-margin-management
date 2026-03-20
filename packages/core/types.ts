@@ -1,3 +1,5 @@
+import type { StockPosition } from './inventory';
+
 export type EntityType = 'user' | 'product' | 'order' | 'inventory_txn';
 
 export interface Entity {
@@ -96,6 +98,10 @@ export interface OrderProperties {
 
   status: OrderStatus;
   notes: string;
+
+  // Stock snapshot at order creation time
+  stock_position_at_creation: StockPosition;
+  stock_warning: string | null;
 
   // Audit fields
   created_by: string;

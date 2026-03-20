@@ -1,6 +1,6 @@
 import { sql } from 'db';
 import type { Order, OrderProperties, ProductProperties, InventoryTxnProperties } from 'core';
-import { computeOrderFields } from 'core';
+import { computeOrderFields, checkOrderStock } from 'core';
 import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
 function rowToOrder(row: { id: string; properties: OrderProperties; created_at: string }): Order {
@@ -188,6 +188,51 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         );
       }
 
+      // Aggregate committed (confirmed) and pending (draft) qty_eaches for this product
+      const stockAggRows = await sql<{ committed_qty: string; pending_qty: string }[]>`
+        SELECT
+          COALESCE(SUM(CASE WHEN properties->>'status' = 'confirmed' THEN (properties->>'qty_eaches')::numeric ELSE 0 END), 0) AS committed_qty,
+          COALESCE(SUM(CASE WHEN properties->>'status' = 'draft' THEN (properties->>'qty_eaches')::numeric ELSE 0 END), 0) AS pending_qty
+        FROM entities
+        WHERE type = 'order'
+          AND properties->>'product_id' = ${product_id!}
+          AND properties->>'status' IN ('confirmed', 'draft')
+      `;
+
+      const committedQty = Number(stockAggRows[0]?.committed_qty ?? 0);
+      const pendingQty = Number(stockAggRows[0]?.pending_qty ?? 0);
+
+      // Build inventory input for the stock engine
+      const inventoryInput = {
+        qty_on_hand: product.properties.qty_on_hand_eaches,
+        reorder_point: product.properties.reorder_point_eaches,
+        safety_stock: product.properties.safety_stock_eaches,
+        reorder_qty: product.properties.reorder_qty_eaches ?? 0,
+        lead_time_days: product.properties.lead_time_days ?? 0,
+        pending_order_weight: product.properties.pending_order_weight,
+        avg_daily_usage: 0,
+      };
+
+      const stockCheck = checkOrderStock(
+        inventoryInput,
+        committedQty,
+        pendingQty,
+        computed.qty_eaches,
+      );
+
+      if (!stockCheck.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: stockCheck.block_reason ?? 'Order blocked: insufficient stock',
+            stock_position: stockCheck.position,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
       const properties: OrderProperties = {
         customer: customer!,
         product_id: product_id!,
@@ -206,6 +251,8 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         margin_floor: product.properties.margin_floor,
         status: 'draft',
         notes: notes ?? '',
+        stock_position_at_creation: stockCheck.position,
+        stock_warning: stockCheck.warning,
         created_by: user.id,
         confirmed_by: null,
         confirmed_at: null,
