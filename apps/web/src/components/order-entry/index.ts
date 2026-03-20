@@ -4,3 +4,7 @@ export { BundleSortControls } from './BundleSortControls';
 export type { BundleSortKey, BundleSortControlsProps } from './BundleSortControls';
 export { BundleCardBase } from './BundleCardBase';
 export type { BundleCardBaseProps } from './BundleCardBase';
+export { StockBadge } from './StockBadge';
+export type { AvailabilityData, StockStatus } from './StockBadge';
+export { StockPositionPanel } from './StockPositionPanel';
+export type { StockPositionData } from './StockPositionPanel';

@@ -12,6 +12,11 @@ import { MarginBox } from './order-entry/MarginBox';
 import { BundleSortControls } from './order-entry/BundleSortControls';
 import type { BundleSortKey } from './order-entry/BundleSortControls';
 import { BundleCardBase } from './order-entry/BundleCardBase';
+import { StockBadge } from './order-entry/StockBadge';
+import type { AvailabilityData } from './order-entry/StockBadge';
+import { StockPositionPanel } from './order-entry/StockPositionPanel';
+import type { StockPositionData } from './order-entry/StockPositionPanel';
+import { useAuth } from '../context/AuthContext';
 
 const UOM_OPTIONS: { value: UnitOfMeasure; label: string }[] = [
   { value: 'square_foot', label: 'Square ft' },
@@ -416,6 +421,7 @@ export interface OrderEntryProps {
 }
 
 export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) => {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
@@ -435,6 +441,10 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
 
   const [form, setForm] = useState<OrderForm>({ ...EMPTY_FORM });
   const [submitting, setSubmitting] = useState(false);
+
+  // Stock data state
+  const [availability, setAvailability] = useState<AvailabilityData | null>(null);
+  const [stockPosition, setStockPosition] = useState<StockPositionData | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
@@ -456,6 +466,43 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
   }, [fetchProducts]);
 
   const selectedProduct = products.find((p) => p.id === form.productId) ?? null;
+
+  // When product changes, fetch stock data based on user role
+  useEffect(() => {
+    if (!selectedProduct) {
+      setAvailability(null);
+      setStockPosition(null);
+      return;
+    }
+
+    const role = user?.role;
+
+    if (role === 'sales_rep') {
+      // Fetch simplified availability
+      fetch(`/api/inventory/${selectedProduct.id}/availability`, { credentials: 'include' })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            setAvailability(data as AvailabilityData);
+          }
+        })
+        .catch(() => {
+          // Silently fail — stock data is supplementary
+        });
+    } else if (role === 'inventory_manager' || role === 'admin') {
+      // Fetch full stock position
+      fetch(`/api/inventory/${selectedProduct.id}`, { credentials: 'include' })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            setStockPosition(data as StockPositionData);
+          }
+        })
+        .catch(() => {
+          // Silently fail — stock data is supplementary
+        });
+    }
+  }, [selectedProduct, user?.role]);
 
   // When product changes, seed sell price with the target-margin per-each rate.
   // Skip seeding when a quoted price was pre-filled via "Select for Quote".
@@ -501,6 +548,9 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
       : null;
 
   const isFractionalEaches = computed !== null && !Number.isInteger(computed.qty_eaches);
+
+  // Stock-based order gate: false when availability says can_order is false
+  const stockBlocked = availability !== null && !availability.can_order;
 
   // Equivalent rates (per sqft and per linft) from sell price per each
   const equivalentRates =
@@ -548,6 +598,8 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
     setSubmitError(null);
     setCustomer('');
     setForm({ ...EMPTY_FORM });
+    setAvailability(null);
+    setStockPosition(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -818,10 +870,19 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
                     />
                   </div>
 
+                  {/* Stock blocked banner */}
+                  {stockBlocked && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded text-sm text-red-700">
+                      Cannot place order — product is out of stock.
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     tabIndex={6}
-                    disabled={submitting || !selectedProduct || !hasQty || !hasPrice}
+                    disabled={
+                      submitting || !selectedProduct || !hasQty || !hasPrice || stockBlocked
+                    }
                     className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-zinc-800 hover:bg-zinc-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? 'Submitting...' : 'Confirm Order'}
@@ -934,6 +995,24 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
                             Enter quantity and price to see margin calculation.
                           </p>
                         </div>
+                      )}
+
+                      {/* Stock display — role-aware */}
+                      {availability && (
+                        <StockBadge
+                          availability={availability}
+                          projectedEaches={computed ? computed.qty_eaches : null}
+                        />
+                      )}
+
+                      {stockPosition && selectedProduct && (
+                        <StockPositionPanel
+                          position={stockPosition}
+                          pendingOrderWeight={
+                            selectedProduct.properties.pending_order_weight ?? 0.7
+                          }
+                          projectedEaches={computed ? computed.qty_eaches : null}
+                        />
                       )}
                     </>
                   ) : (
