@@ -1,7 +1,7 @@
 import { sql } from 'db';
-import type { Order, OrderProperties, ProductProperties } from 'core';
+import type { Order, OrderProperties, ProductProperties, InventoryTxnProperties } from 'core';
 import { computeOrderFields } from 'core';
-import { getAuthenticatedUser, getCorsHeaders } from './auth';
+import { getAuthenticatedUser, getCorsHeaders, requireRole } from './auth';
 
 function rowToOrder(row: { id: string; properties: OrderProperties; created_at: string }): Order {
   return {
@@ -289,6 +289,13 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
             },
           );
         }
+
+        // Require inventory_manager or admin role for shipped transition
+        if (newStatus === 'shipped') {
+          const roleGuard = requireRole('inventory_manager', 'admin');
+          const roleError = await roleGuard(req);
+          if (roleError) return roleError;
+        }
       }
 
       const updatedProps: OrderProperties = { ...currentProps };
@@ -319,6 +326,61 @@ export async function handleOrdersRequest(req: Request, url: URL): Promise<Respo
         WHERE id = ${orderId} AND type = 'order'
         RETURNING id, properties, created_at
       `;
+
+      // If transitioning to shipped, create inventory_txn and decrement product qty
+      if (newStatus === 'shipped' && newStatus !== currentStatus) {
+        const order = rowToOrder(rows[0]);
+        const qtyChange = -order.properties.qty_eaches;
+
+        // Fetch the product to get current qty and sku
+        const productRows = await sql<
+          { id: string; properties: ProductProperties; created_at: string }[]
+        >`
+          SELECT id, properties, created_at
+          FROM entities
+          WHERE id = ${order.properties.product_id} AND type = 'product'
+        `;
+
+        if (productRows.length > 0) {
+          const product = productRows[0];
+          const newQtyOnHand = (product.properties.qty_on_hand_eaches ?? 0) + qtyChange;
+          const balanceAfter = newQtyOnHand;
+
+          // Create shipment inventory_txn
+          const txnId = crypto.randomUUID();
+          const txnProperties: InventoryTxnProperties = {
+            product_id: order.properties.product_id,
+            product_sku: product.properties.sku,
+            txn_type: 'shipment',
+            qty_eaches: qtyChange,
+            reference: order.id,
+            balance_after: balanceAfter,
+            created_by: user.id,
+          };
+
+          await sql`
+            INSERT INTO entities (id, type, properties, tenant_id)
+            VALUES (${txnId}, 'inventory_txn', ${sql.json(JSON.parse(JSON.stringify(txnProperties)))}, null)
+          `;
+
+          // Update product qty_on_hand_eaches
+          const updatedProductProps: ProductProperties = {
+            ...product.properties,
+            qty_on_hand_eaches: newQtyOnHand,
+          };
+
+          await sql`
+            UPDATE entities
+            SET properties = ${sql.json(JSON.parse(JSON.stringify(updatedProductProps)))}, updated_at = CURRENT_TIMESTAMP, version = version + 1
+            WHERE id = ${order.properties.product_id} AND type = 'product'
+          `;
+        }
+
+        return new Response(JSON.stringify(order), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       const order = rowToOrder(rows[0]);
       return new Response(JSON.stringify(order), {
