@@ -1,7 +1,9 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import postgres from 'postgres';
 import { startPostgres, type PgContainer } from './pg-container';
-import { migrate, seed } from './index';
+import { seed } from './seed';
 
 /**
  * Integration tests for demo seed users with roles.
@@ -11,13 +13,25 @@ import { migrate, seed } from './index';
  * - Seed is idempotent (no duplicates on second run)
  */
 
+const SCHEMA_PATH = join(new URL('.', import.meta.url).pathname, 'schema.sql');
+
 let pg: PgContainer;
 let db: postgres.Sql;
 
 beforeAll(async () => {
   pg = await startPostgres();
   db = postgres(pg.url, { max: 1 });
-  await migrate({ databaseUrl: pg.url });
+
+  // Apply schema
+  const schemaSql = readFileSync(SCHEMA_PATH, 'utf-8');
+  const cleanSql = schemaSql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const statement of cleanSql
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)) {
+    await db.unsafe(statement);
+  }
+
   await seed(db);
 }, 60_000);
 
