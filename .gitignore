@@ -42,3 +42,9 @@ coverage/
 
 # Studio cleanup sentinel
 .calypso-db
+
+# Dev Postgres container sentinel
+.meshmargin-db
+
+# Component test screenshots
+apps/web/tests/component/__screenshots__/
