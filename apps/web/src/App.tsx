@@ -47,8 +47,8 @@ function App() {
 
   return (
     <div className="flex h-screen w-full bg-zinc-50 font-sans overflow-hidden text-zinc-900">
-      {/* Left Sidebar */}
-      <nav className="w-16 shrink-0 border-r border-zinc-200 bg-white flex flex-col items-center py-6 justify-between z-10">
+      {/* Left Sidebar — hidden on mobile, visible on sm+ */}
+      <nav className="hidden sm:flex w-16 shrink-0 border-r border-zinc-200 bg-white flex-col items-center py-6 justify-between z-10">
         <div className="flex flex-col items-center gap-6">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
             <span className="text-white font-black text-lg">M</span>
@@ -60,7 +60,7 @@ function App() {
                 key={id}
                 onClick={() => setActiveView(id)}
                 title={label}
-                className={`p-3 rounded-lg flex items-center justify-center transition-all ${
+                className={`p-3 rounded-lg flex items-center justify-center transition-all min-h-[44px] min-w-[44px] ${
                   activeView === id
                     ? 'bg-emerald-50 text-emerald-600'
                     : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600'
@@ -76,7 +76,7 @@ function App() {
           <button
             onClick={logout}
             title="Logout"
-            className="w-10 h-10 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
+            className="w-11 h-11 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500 outline-none"
           >
             <User size={18} />
           </button>
@@ -96,7 +96,8 @@ function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-6">
+        {/* Content area — adds bottom padding on mobile to avoid bottom tab bar overlap */}
+        <div className="flex-1 overflow-auto p-4 sm:p-6 pb-20 sm:pb-6">
           {activeView === 'order-entry' && (
             <OrderEntry onNavigateToHistory={() => setActiveView('history')} />
           )}
@@ -106,6 +107,35 @@ function App() {
           {activeView === 'users' && <UsersView />}
         </div>
       </main>
+
+      {/* Bottom tab bar — mobile only (hidden on sm+) */}
+      <nav
+        className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-zinc-200 flex items-center justify-around z-20"
+        aria-label="Mobile navigation"
+      >
+        {navItems.map(({ id, icon: Icon, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveView(id)}
+            aria-label={label}
+            aria-current={activeView === id ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] py-2 transition-colors ${
+              activeView === id ? 'text-emerald-600' : 'text-zinc-400'
+            }`}
+          >
+            <Icon size={22} strokeWidth={2} />
+            <span className="text-[10px] font-medium leading-none">{label}</span>
+          </button>
+        ))}
+        <button
+          onClick={logout}
+          aria-label="Logout"
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] py-2 text-zinc-400 hover:text-red-500 transition-colors"
+        >
+          <User size={22} strokeWidth={2} />
+          <span className="text-[10px] font-medium leading-none">Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }

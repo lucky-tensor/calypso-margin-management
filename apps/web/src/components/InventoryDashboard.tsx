@@ -250,7 +250,7 @@ function TransactionLog({ productId }: { productId: string }) {
   }
 
   return (
-    <div className="px-6 pb-3">
+    <div className="px-6 pb-3 overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-zinc-100">
@@ -386,7 +386,7 @@ export const InventoryDashboard: React.FC = () => {
           {filter === 'all' ? 'No inventory data available.' : 'No products match this filter.'}
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
