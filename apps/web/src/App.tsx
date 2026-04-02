@@ -110,7 +110,7 @@ function App() {
 
       {/* Bottom tab bar — mobile only (hidden on sm+) */}
       <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-zinc-200 flex items-center justify-around z-20"
+        className="max-sm:flex hidden fixed bottom-0 inset-x-0 bg-white border-t border-zinc-200 items-center justify-around z-20"
         aria-label="Mobile navigation"
       >
         {navItems.map(({ id, icon: Icon, label }) => (

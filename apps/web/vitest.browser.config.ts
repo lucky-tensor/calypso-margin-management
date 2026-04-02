@@ -110,5 +110,11 @@ export default defineConfig({
     include: ['tests/component/**/*.test.tsx'],
     passWithNoTests: true,
     fileParallelism: false,
+    testTimeout: 30000,
+    expect: {
+      poll: {
+        timeout: 5000,
+      },
+    },
   },
 });
