@@ -394,7 +394,7 @@ function SearchByUoMPanel({
   const role = user?.role;
 
   return (
-    <div className="grid grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
       {/* Left column: search controls and bundle list */}
       <div className="space-y-4">
         {/* Toggle: Linear ft | Sqft */}
@@ -989,7 +989,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = ({ onNavigateToHistory }) =
 
           {mode === 'specific-product' && (
             <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Left column: inputs */}
                 <div className="space-y-4">
                   <div>
