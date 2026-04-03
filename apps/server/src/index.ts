@@ -13,11 +13,15 @@
 // Fail-fast guard: must run before any module that uses JWT is imported so
 // that the check fires before the server binds to a port.
 if (!process.env.JWT_SECRET) {
-  console.error(
-    'FATAL: JWT_SECRET environment variable is not set. ' +
-      'Set it to a strong random secret before starting the server.',
-  );
-  process.exit(1);
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      'FATAL: JWT_SECRET environment variable is not set. ' +
+        'Set it to a strong random secret before starting the server.',
+    );
+    process.exit(1);
+  }
+  process.env.JWT_SECRET = crypto.randomUUID();
+  console.warn('WARNING: JWT_SECRET not set — using a random secret for this session. Sessions will not survive a server restart.');
 }
 
 import { migrate, seed, sql } from 'db';
