@@ -2,6 +2,26 @@ import { sql } from 'db';
 import type { Role } from 'core';
 import { signJwt, verifyJwt } from '../auth/jwt';
 
+/**
+ * Explicit CORS origin allowlist driven by CORS_ALLOWED_ORIGINS env variable.
+ * Format: comma-separated list of origins, e.g. "http://localhost:5174,https://app.example.com"
+ * Falls back to localhost dev origin when the variable is not set (development only).
+ *
+ * Requests from origins not in the allowlist do not receive the
+ * Access-Control-Allow-Origin header (issue #129 — unbounded CORS reflection fix).
+ */
+const CORS_ALLOWLIST: Set<string> = new Set(
+  process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:5174', 'http://localhost:5173'],
+);
+
+/**
+ * Whether to set the Secure attribute on session cookies.
+ * Gated on NODE_ENV=production so integration tests running over HTTP are not broken.
+ */
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
 // Helper to parse cookies from headers
 export function parseCookies(cookieHeader: string | null): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -16,14 +36,33 @@ export function parseCookies(cookieHeader: string | null): Record<string, string
   return cookies;
 }
 
-// Helper to get CORS headers dynamically
+/**
+ * Returns CORS headers for a request.
+ * Only reflects the origin back when it appears in CORS_ALLOWLIST.
+ * Unlisted origins receive no ACAO header.
+ */
 export function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') || 'http://localhost:5174';
+  const origin = req.headers.get('Origin') ?? '';
+  if (!origin || !CORS_ALLOWLIST.has(origin)) {
+    return {
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+  }
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
+}
+
+/**
+ * Builds the Set-Cookie value for a session token.
+ * Adds the Secure attribute when NODE_ENV=production.
+ */
+function buildSessionCookie(token: string): string {
+  const base = `meshmargin_auth=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`;
+  return IS_PRODUCTION ? `${base}; Secure` : base;
 }
 
 // Helper to verify auth from a Request object
@@ -144,7 +183,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
-          'Set-Cookie': `meshmargin_auth=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+          'Set-Cookie': buildSessionCookie(token),
         },
       });
     } catch (err) {
@@ -199,7 +238,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
-            'Set-Cookie': `meshmargin_auth=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`,
+            'Set-Cookie': buildSessionCookie(token),
           },
         },
       );
@@ -213,19 +252,69 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
   }
 
   // 3. GET /api/auth/me
-  // Validates the session cookie and returns user profile
+  // Validates the session cookie, re-fetches the role from the database, and
+  // returns the current user profile. If the role stored in the DB differs
+  // from the JWT payload, a fresh token is re-issued via Set-Cookie so the
+  // next request carries the updated role without requiring a logout.
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
-    const user = await getAuthenticatedUser(req);
-    if (!user) {
+    const jwtUser = await getAuthenticatedUser(req);
+    if (!jwtUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    return new Response(JSON.stringify({ user }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+
+    // Re-fetch role and display_name from the database so that admin role
+    // changes are reflected immediately without requiring a logout.
+    try {
+      const rows = await sql`
+        SELECT properties->>'role' as role, properties->>'display_name' as display_name
+        FROM entities
+        WHERE id = ${jwtUser.id} AND type = 'user'
+      `;
+
+      if (rows.length === 0) {
+        // User has been deleted — treat as unauthorised
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const dbRole: Role = (rows[0].role as Role) ?? jwtUser.role;
+      const dbDisplayName: string = rows[0].display_name ?? jwtUser.display_name;
+      const currentUser = {
+        id: jwtUser.id,
+        username: jwtUser.username,
+        role: dbRole,
+        display_name: dbDisplayName,
+      };
+
+      const roleChanged = dbRole !== jwtUser.role || dbDisplayName !== jwtUser.display_name;
+      const responseHeaders: Record<string, string> = {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      };
+
+      if (roleChanged) {
+        // Re-issue the session cookie with the current DB values
+        const freshToken = await signJwt(currentUser);
+        responseHeaders['Set-Cookie'] = buildSessionCookie(freshToken);
+      }
+
+      return new Response(JSON.stringify({ user: currentUser }), {
+        status: 200,
+        headers: responseHeaders,
+      });
+    } catch (err) {
+      console.error('GET /api/auth/me DB ERROR:', err);
+      // Fall back to JWT payload on DB error to avoid disrupting active sessions
+      return new Response(JSON.stringify({ user: jwtUser }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   // 4. POST /api/auth/logout
@@ -235,7 +324,7 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
-        'Set-Cookie': 'meshmargin_auth=; HttpOnly; Path=/; Max-Age=0',
+        'Set-Cookie': 'meshmargin_auth=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0',
       },
     });
   }

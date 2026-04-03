@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export type Role = 'sales_rep' | 'inventory_manager' | 'admin';
 
@@ -29,26 +36,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Check if user is logged in
-    fetch('/api/auth/me', {
-      method: 'GET',
-      credentials: 'include',
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) setUser(data.user);
-        } else if (res.status !== 401) {
-          console.warn(`Auth check failed with status: ${res.status}`);
+  /**
+   * Calls GET /api/auth/me and updates local user state.
+   * Returns true if the session is still valid, false on 401 or network error.
+   *
+   * Mid-session expiry handling (issue #129):
+   * When the response is 401 the user is set to null, causing the login screen
+   * to render automatically — no page reload required.
+   */
+  const checkSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          return true;
         }
-      })
-      .catch((err) => {
-        // Network error or fetch failure
-        console.error('Auth check failed:', err);
-      })
-      .finally(() => setLoading(false));
+      } else if (res.status === 401) {
+        // Token has expired or was revoked — clear the session immediately
+        setUser(null);
+        return false;
+      } else {
+        console.warn(`Auth check failed with status: ${res.status}`);
+      }
+    } catch (err) {
+      // Network error or fetch failure
+      console.error('Auth check failed:', err);
+    }
+    return false;
   }, []);
+
+  // Initial session check on mount
+  useEffect(() => {
+    checkSession().finally(() => setLoading(false));
+  }, [checkSession]);
+
+  // Re-validate the session when the browser tab becomes visible after being
+  // hidden (e.g. the user switches back from another tab). This ensures that
+  // a token that expired while the tab was inactive is detected promptly and
+  // the login screen is shown without requiring a page reload.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        checkSession();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [checkSession]);
 
   const logout = async () => {
     try {

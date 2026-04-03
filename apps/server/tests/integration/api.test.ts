@@ -22,7 +22,12 @@ beforeAll(async () => {
 
   server = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
     cwd: REPO_ROOT,
-    env: { ...process.env, DATABASE_URL: pg.url, PORT: String(PORT) },
+    env: {
+      ...process.env,
+      DATABASE_URL: pg.url,
+      PORT: String(PORT),
+      JWT_SECRET: process.env.JWT_SECRET ?? 'test-only-secret',
+    },
     stdout: 'ignore',
     stderr: 'ignore',
   });

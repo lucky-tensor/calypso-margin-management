@@ -3,10 +3,25 @@
  * Main entrypoint for the MeshMargin Bun server.
  * Handles HTTP requests, routes to API modules, and serves
  * the compiled frontend React application from `apps/web/dist`.
+ *
+ * Security hardening (issue #129):
+ * - JWT_SECRET must be set in the environment before the server binds.
+ *   The process exits with code 1 if the variable is absent or empty so that
+ *   the server never starts with an insecure fallback secret in production.
  */
 
+// Fail-fast guard: must run before any module that uses JWT is imported so
+// that the check fires before the server binds to a port.
+if (!process.env.JWT_SECRET) {
+  console.error(
+    'FATAL: JWT_SECRET environment variable is not set. ' +
+      'Set it to a strong random secret before starting the server.',
+  );
+  process.exit(1);
+}
+
 import { migrate, seed, sql } from 'db';
-import { handleAuthRequest } from './api/auth';
+import { handleAuthRequest, getCorsHeaders } from './api/auth';
 import { handleProductsRequest } from './api/products';
 import { handleOrdersRequest } from './api/orders';
 import { handleInventoryRequest } from './api/inventory';
@@ -21,13 +36,13 @@ export default {
   async fetch(req: Request) {
     const url = new URL(req.url);
 
-    // Handle CORS for local dev
+    // Handle CORS preflight — delegate to auth helper so origin allowlist applies
     if (req.method === 'OPTIONS') {
+      const corsHeaders = getCorsHeaders(req);
       return new Response('Departed', {
         headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          ...corsHeaders,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
         },
       });
     }

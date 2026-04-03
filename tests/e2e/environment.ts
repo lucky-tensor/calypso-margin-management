@@ -33,6 +33,7 @@ export async function startE2EServer(): Promise<E2EEnvironment> {
       MESHMARGIN_REPO_ROOT: cloneRoot,
       DATABASE_URL: pg.url,
       PORT: String(SERVER_PORT),
+      JWT_SECRET: process.env.JWT_SECRET ?? 'test-only-secret',
     },
     stdout: 'inherit',
     stderr: 'inherit',

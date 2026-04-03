@@ -1,11 +1,43 @@
-const JWT_SECRET_KEY = process.env.JWT_SECRET || 'meshmargin-dev-secret';
+/**
+ * @file jwt.ts
+ * Lightweight JWT helper using the Web Crypto API (HS256).
+ *
+ * Policy note:
+ * This JWT helper is a starter implementation for the current app shell. The
+ * blueprint target is stricter: passkey-first auth, pinned algorithms by
+ * deployment, revocation checks, delegated authority for consequential actions,
+ * and sandbox-only credentials for digital twins.
+ *
+ * Security hardening (issue #129):
+ * - JWT_SECRET absence is checked at server startup in index.ts; the server
+ *   process exits before binding if the variable is not set.
+ * - The CryptoKey is imported once at module scope so repeated sign/verify
+ *   calls do not call crypto.subtle.importKey on every invocation.
+ *   Re-import only occurs if JWT_SECRET changes between module evaluations
+ *   (which is not expected in production but can happen in tests).
+ */
+
+/**
+ * The raw secret used for HMAC signing.
+ * Falls back to an insecure placeholder in non-production environments so that
+ * unit and integration tests that import this module directly (without the
+ * fail-fast guard in index.ts) can still run.  Production startup enforces the
+ * presence of JWT_SECRET via index.ts before any request is served.
+ */
+const JWT_SECRET_KEY = process.env.JWT_SECRET || 'meshmargin-test-placeholder';
 const ENCODER = new TextEncoder();
 
-// Policy note:
-// This JWT helper is a starter implementation for the current app shell. The
-// blueprint target is stricter: passkey-first auth, pinned algorithms by
-// deployment, revocation checks, delegated authority for consequential actions,
-// and sandbox-only credentials for digital twins.
+/**
+ * Module-scoped CryptoKey promise. Resolved once at startup so that
+ * signJwt and verifyJwt never call crypto.subtle.importKey more than once.
+ */
+const CRYPTO_KEY_PROMISE: Promise<CryptoKey> = crypto.subtle.importKey(
+  'raw',
+  ENCODER.encode(JWT_SECRET_KEY),
+  { name: 'HMAC', hash: 'SHA-256' },
+  false,
+  ['sign', 'verify'],
+);
 
 /**
  * Encodes a string to a Base64 URL Safe string.
@@ -27,20 +59,8 @@ function base64UrlDecode(str: string): string {
 }
 
 /**
- * Gets the Web Crypto HMAC key for signing.
- */
-async function getCryptoKey(): Promise<CryptoKey> {
-  return await crypto.subtle.importKey(
-    'raw',
-    ENCODER.encode(JWT_SECRET_KEY),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
-}
-
-/**
  * Signs a payload generating a JWT token natively using Web Crypto.
+ * Uses the module-scoped CryptoKey — no re-import on every call.
  */
 export async function signJwt(payload: object, expiresInHours = 24 * 7): Promise<string> {
   const header = { alg: 'HS256', typ: 'JWT' };
@@ -50,7 +70,7 @@ export async function signJwt(payload: object, expiresInHours = 24 * 7): Promise
   const encodedPayload = base64UrlEncode(JSON.stringify({ ...payload, exp }));
 
   const dataToSign = ENCODER.encode(`${encodedHeader}.${encodedPayload}`);
-  const key = await getCryptoKey();
+  const key = await CRYPTO_KEY_PROMISE;
 
   const signatureBuffer = await crypto.subtle.sign('HMAC', key, dataToSign);
   const encodedSignature = base64UrlEncode(new Uint8Array(signatureBuffer));
@@ -60,6 +80,7 @@ export async function signJwt(payload: object, expiresInHours = 24 * 7): Promise
 
 /**
  * Verifies and decodes a JWT token. Throws if invalid or expired.
+ * Uses the module-scoped CryptoKey — no re-import on every call.
  */
 export async function verifyJwt<T>(token: string): Promise<T> {
   const parts = token.split('.');
@@ -70,7 +91,7 @@ export async function verifyJwt<T>(token: string): Promise<T> {
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   const dataToSign = ENCODER.encode(`${encodedHeader}.${encodedPayload}`);
 
-  const key = await getCryptoKey();
+  const key = await CRYPTO_KEY_PROMISE;
 
   // Convert signature from base64url back to Uint8Array safely for verification
   let base64Sig = encodedSignature.replace(/-/g, '+').replace(/_/g, '/');
