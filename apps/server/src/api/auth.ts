@@ -257,8 +257,18 @@ export async function handleAuthRequest(req: Request, url: URL): Promise<Respons
   // from the JWT payload, a fresh token is re-issued via Set-Cookie so the
   // next request carries the updated role without requiring a logout.
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
+    const cookies = parseCookies(req.headers.get('Cookie'));
+    if (!cookies['meshmargin_auth']) {
+      // No session cookie — not an error, just no active session
+      return new Response(JSON.stringify({ user: null }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const jwtUser = await getAuthenticatedUser(req);
     if (!jwtUser) {
+      // Cookie present but token is invalid or expired
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

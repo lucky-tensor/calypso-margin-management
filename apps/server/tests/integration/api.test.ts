@@ -84,9 +84,11 @@ test('GET /api/auth/me returns 200 with valid session', async () => {
   expect(body.user.username).toBeTruthy();
 });
 
-test('GET /api/auth/me returns 401 without session', async () => {
+test('GET /api/auth/me returns 200 with null user without session', async () => {
   const res = await fetch(`${BASE}/api/auth/me`);
-  expect(res.status).toBe(401);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.user).toBeNull();
 });
 
 // ---------------------------------------------------------------------------
