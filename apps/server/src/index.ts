@@ -21,7 +21,9 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
   }
   process.env.JWT_SECRET = crypto.randomUUID();
-  console.warn('WARNING: JWT_SECRET not set — using a random secret for this session. Sessions will not survive a server restart.');
+  console.warn(
+    'WARNING: JWT_SECRET not set — using a random secret for this session. Sessions will not survive a server restart.',
+  );
 }
 
 import { migrate, seed, sql } from 'db';

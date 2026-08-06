@@ -66,7 +66,12 @@ async function main() {
   // 4. Spawn API server subprocess with DATABASE_URL set
   const apiServer = Bun.spawn(['bun', 'run', '--hot', 'src/index.ts'], {
     cwd: join(REPO_ROOT, 'apps', 'server'),
-    env: { ...process.env, DATABASE_URL: pg.url, PORT: String(API_PORT), JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-do-not-use-in-prod' },
+    env: {
+      ...process.env,
+      DATABASE_URL: pg.url,
+      PORT: String(API_PORT),
+      JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-do-not-use-in-prod',
+    },
     stdout: 'inherit',
     stderr: 'inherit',
   });
