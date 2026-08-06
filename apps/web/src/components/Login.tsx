@@ -99,11 +99,10 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col justify-center items-center font-sans">
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold text-zinc-900 mb-2">The Wire.</h1>
-        <h3 className="text-xl font-medium text-zinc-500">Pricing Season</h3>
+        <h1 className="text-5xl font-bold text-zinc-900 mb-2">Superfield Margin</h1>
+        <h3 className="text-xl font-medium text-zinc-500">CPQ Demo</h3>
       </div>
       <div className="bg-white p-8 rounded-lg shadow-sm border border-zinc-200 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-zinc-900 mb-2 text-center">MeshMargin</h1>
         <p className="text-zinc-500 text-center mb-8">
           {isRegister ? 'Create an account' : 'Sign in to your account'}
         </p>
