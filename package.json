@@ -19,7 +19,8 @@
     "prettier": "prettier",
     "format": "bunx prettier --write .",
     "format:check": "bunx prettier --check .",
-    "dev": "bun run scripts/dev-start.ts"
+    "dev": "bun run scripts/dev-start.ts",
+    "demo": "bun run scripts/dev-start.ts --fixed-ports"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

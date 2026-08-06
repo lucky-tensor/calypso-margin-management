@@ -32,12 +32,13 @@ function findAvailablePort(start: number): Promise<number> {
   });
 }
 
-const API_PORT = await findAvailablePort(Number(process.env.PORT ?? 31415));
-const WEB_PORT = await findAvailablePort(Number(process.env.WEB_PORT ?? 5174));
+const isFixedPorts = process.argv.includes('--fixed-ports');
+const defaultApiPort = Number(process.env.PORT ?? 31415);
+const defaultWebPort = Number(process.env.WEB_PORT ?? 5174);
+const API_PORT = isFixedPorts ? defaultApiPort : await findAvailablePort(defaultApiPort);
+const WEB_PORT = isFixedPorts ? defaultWebPort : await findAvailablePort(defaultWebPort);
 
 async function main() {
-  const defaultApiPort = Number(process.env.PORT ?? 31415);
-  const defaultWebPort = Number(process.env.WEB_PORT ?? 5174);
   if (API_PORT !== defaultApiPort)
     console.log(`  ⚠  Port ${defaultApiPort} in use, API server on ${API_PORT}`);
   if (WEB_PORT !== defaultWebPort)
@@ -65,7 +66,7 @@ async function main() {
   // 4. Spawn API server subprocess with DATABASE_URL set
   const apiServer = Bun.spawn(['bun', 'run', '--hot', 'src/index.ts'], {
     cwd: join(REPO_ROOT, 'apps', 'server'),
-    env: { ...process.env, DATABASE_URL: pg.url, PORT: String(API_PORT) },
+    env: { ...process.env, DATABASE_URL: pg.url, PORT: String(API_PORT), JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-do-not-use-in-prod' },
     stdout: 'inherit',
     stderr: 'inherit',
   });

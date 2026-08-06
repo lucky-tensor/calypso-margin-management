@@ -243,7 +243,7 @@ test('POST /api/auth/login Set-Cookie includes Secure when NODE_ENV=production',
 // Server startup without JWT_SECRET
 // ---------------------------------------------------------------------------
 
-test('server exits with non-zero code when JWT_SECRET is not set', async () => {
+test('server exits with non-zero code when JWT_SECRET is not set in production', async () => {
   const noSecretPort = PORT + 2;
 
   const proc = Bun.spawn(['bun', 'run', SERVER_ENTRY], {
@@ -252,6 +252,7 @@ test('server exits with non-zero code when JWT_SECRET is not set', async () => {
       ...process.env,
       DATABASE_URL: pg.url,
       PORT: String(noSecretPort),
+      NODE_ENV: 'production',
       // Explicitly remove JWT_SECRET
       JWT_SECRET: '',
     },
